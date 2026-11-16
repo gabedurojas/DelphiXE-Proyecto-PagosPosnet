@@ -1,0 +1,715 @@
+unit Modulo;
+
+interface
+
+uses
+  SysUtils, Classes, DB, ADODB, DBTables, Provider,
+   Messages, Windows, Dialogs, StdCtrls, ComCtrls, Forms, DCPcrypt2, DCPsha1,
+    Encryp, XPMan, JvComponentBase, IdTCPConnection,
+    JvAppStorage,  JvAppIniStorage,     Winsock,    RzCmboBx,
+  JvComputerInfoEx, IdBaseComponent, IdComponent, IdTCPClient,
+  IdFTP, MidasLib;
+
+  {  , , , , , , , ,
+  , , , , JvAppStorage,
+  JvAppIniStorage, Winsock, Objetos, RzCmboBx, DCPcrypt2, DCPsha1}
+
+
+  //DCPcrypt2, DCPsha1;
+
+type TDLLConectionString = Function(Const NombreArchIni,NombreAplicacion:PAnsiChar;
+                            Const NroConexion,Parte:UCHAR; Const BorrarArchivo,ActivaLog:BOOL):PAnsiChar; StdCall;
+type TDLLReadIni = Function(const ArchivoIni,Etiqueta,Variable,ValoXDefecto:PAnsiChar):PAnsiChar; stdcall;
+type TDLLWriteIni = Function(const ArchivoIni,Etiqueta,Variable,ValorAsignado:PAnsiChar):PBOOL; stdcall;
+type TDLLDeleteSectionIni = Function(const ArchivoIni,Etiqueta:PAnsiChar):PBOOL; stdcall;
+type TDLLEncriptarStr = Function(const Texto,Key,TipoCifrador:PAnsiChar):PAnsiChar; stdcall;
+type TDLLDencryptStr = Function(const Texto,Key,TipoCifrador:PAnsiChar):PAnsiChar; stdcall;
+type TDLLVersionDLL = Function:PAnsiChar; stdcall;
+
+Type
+ TComboClase =Class(TObject)
+ Private
+    aId:String;
+    aPar2:String;
+    aPar3:String;
+    aPar4:String;
+ Public
+   constructor Create();
+   Property Identificador:String read aId write aId;
+   Property Param2:String read aPar2 write aPar2;
+   Property Param3:String read aPar3 write aPar3;
+   Property Param4:String read aPar4 write aPar4;
+end;
+
+type
+  Tmodulo2 = class(TDataModule)
+    DCP_sha11: TDCP_sha1;
+    procedure DataModuleCreate(Sender: TObject);
+    Function Desencript(Valor,ValDefecto:string):string;
+    Function ExisteDir(valor:string;EsDir:boolean):boolean;
+    Function ExisteArchivo(valor,DirectoriosInternos:string;EsDir:boolean):boolean;
+    function EnviarArchivoFTP(NombreArchivo,PathDestino,DirectoriosInternos:string;BorrarAlCopiar:boolean):boolean;
+    function ExtraerArchivoFTP(NombreArchivo,PathDestino,DirectoriosInternos:string):boolean;
+    function SetearFTP(LecturaEscritura:boolean):boolean;
+    Function TamanioArchivoFTP(NombreArchivo,DirectoriosInternos:string):integer;
+    Function BorrarArchivoFTP(NombreArchivo,DirectoriosInternos:string):boolean;
+    Function ConectionString(NombreArchIni,NombreAplicacion:string;NroConexion,Parte:byte;
+                            BorrarArchivo,ActivaLog:boolean):string;
+    Function ReadIni(ArchivoIni,Etiqueta,Variable,ValoXDefecto:string):string;
+    Function WriteIni(ArchivoIni,Etiqueta,Variable,ValorAsignado:string):boolean;
+    Function DeleteSectionIni(ArchivoIni,Etiqueta:string):boolean;
+    Function EncriptarStr(Texto,Key,TipoCifrador:string):string;
+    Function DencryptStr(Texto,Key,TipoCifrador:string):string;
+    Function VersionDll():string;
+
+    procedure CargaCombo(var Combo:TComboBox;  comando,ConectDB:Widestring);
+    procedure LiberarCombo(var Combo:TComboBox);
+
+    function getIPs: Tstrings;
+    function obtenerNombrePC : Ansistring;
+
+  private
+      Encrypt:TTomEncryption;
+    { Private declarations }
+  public
+    path_todo,modif,num_modulo,reg_imp,Comodin,Seleccion,PuntoV:string;
+    refin,num_opcion,PositionFTP,UsuNvl:integer;
+    ConectDbMuni,ConectDbInti,ConectDbSucerp,ConectDbPlanes,ConectDbSeguridad,
+    ConectDbCuit,ConectDbAuto,ConectDbComTasa,ConectDbTransito,ConectDbTFaltas,
+    ConectDbMasivas,ConectDbInfracciones,ConectDbIntiNew:widestring;
+    LstArchivos:TStringList;
+    UsuNro,UsuNroArea,UsuAreaDet,UsuPuntoV,UsuMail,UsuNombre,MyHost,MyIP,server:string;
+    Ini1: TJvAppIniFileStorage;
+    ObjConexion:TADOConnection;{ Public declarations }
+  end;
+
+const
+   DLLConectionString: TDLLConectionString = nil;
+   DLLReadIni: TDLLReadIni = nil;
+   DLLWriteIni: TDLLWriteIni = nil;
+   DLLDeleteSectionIni: TDLLDeleteSectionIni = nil;
+   DLLEncriptarStr: TDLLEncriptarStr = nil;
+   DLLDencryptStr: TDLLDencryptStr = nil;
+   DLLVersionDLL : TDLLVersionDLL  = nil;
+   NombreDll = 'Resource02.dll';
+var
+    modulo2: Tmodulo2;
+    DLLHandle: THandle;
+
+implementation
+
+uses Unidad;
+
+{$R *.dfm}
+constructor TComboClase.Create();
+begin
+//Inicio los valores por defecto
+  aId:='';
+  aPar2:='';
+  aPar3:='';
+  aPar4:='';
+end;
+
+function TModulo2.obtenerNombrePC():Ansistring;
+var
+  nombre: AnsiString;
+  DatosSocket: WSAData;
+begin
+  WSAStartup($0101, DatosSocket);
+  SetLength(nombre, MAX_PATH);
+  gethostname(PAnsiChar(Nombre), MAX_PATH);
+  SetLength(nombre, StrLen(PAnsiChar(nombre)));
+  result := nombre;
+end;
+
+function TModulo2.getIPs: Tstrings;
+type
+  TaPInAddr = array[0..10] of PInAddr;
+  PaPInAddr = ^TaPInAddr;
+var
+  phe: PHostEnt;
+  pptr: PaPInAddr;
+  Buffer: array[0..63] of AnsiChar;
+  I: Integer;
+  GInitData: TWSAData;
+begin
+  WSAStartup($101, GInitData);
+  Result := TstringList.Create;
+  Result.Clear;
+  GetHostName(Buffer, SizeOf(Buffer));
+  phe := GetHostByName(buffer);
+  if phe = nil then Exit;
+  pPtr := PaPInAddr(phe^.h_addr_list);
+  I    := 0;
+  while pPtr^[I] <> nil do
+  begin
+    Result.Add(inet_ntoa(pptr^[I]^));
+    Inc(I);
+  end;
+  WSACleanup;
+end;
+
+function Tmodulo2.ConectionString(NombreArchIni,NombreAplicacion:string;NroConexion,Parte:byte;
+                            BorrarArchivo,ActivaLog:boolean):string;
+var Arch,NomApl,Res:PAnsiChar;
+    //NrCx,Prt:UCHAR;
+    rt:string;
+begin
+Arch:=PAnsiChar(NombreArchIni);
+NomApl:=PAnsiChar(NombreAplicacion);
+DLLHandle := LoadLibrary(NombreDll);
+Res:=PAnsiChar('');
+if (DLLHandle > 0) then begin
+  try
+    @DLLConectionString := GetProcAddress(DLLHandle, 'ConectionString');
+     {if procedure is found in the dll}
+    if Assigned(DLLConectionString) then begin
+       Res:=DLLConectionString(Arch,NomApl,NroConexion,Parte,BorrarArchivo,ActivaLog);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: ConectionString');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.ReadIni(ArchivoIni,Etiqueta,Variable,ValoXDefecto:string):string;
+var Arch,Etiq,Vari,Valor,Res:PAnsiChar;
+    rt:string;
+begin
+Arch:=PAnsiChar(ArchivoIni);
+Etiq:=PAnsiChar(Etiqueta);
+Vari:=PAnsiChar(Variable);
+Valor:=PAnsiChar(ValoXDefecto);
+Res:=PAnsiChar('');
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLReadIni := GetProcAddress(DLLHandle, 'ReadIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLReadIni) then begin
+       Res:=DLLReadIni(Arch,Etiq,Vari,Valor);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: ReadIni');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.WriteIni(ArchivoIni,Etiqueta,Variable,ValorAsignado:string):boolean;
+var Arch,Etiq,Vari,Valor:PAnsiChar;
+    Res:PBool;
+    rt:boolean;
+begin
+Arch:=PAnsiChar(ArchivoIni);
+Etiq:=PAnsiChar(Etiqueta);
+Vari:=PAnsiChar(Variable);
+Valor:=PAnsiChar(ValorAsignado);
+Res:=PBool(false);
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLWriteIni := GetProcAddress(DLLHandle, 'WriteIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLWriteIni) then begin
+       Res:=DLLWriteIni(Arch,Etiq,Vari,Valor);
+       rt:=boolean(Res);
+    end
+    else
+       ShowMessage('No se existe Función: WriteIni');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.DeleteSectionIni(ArchivoIni,Etiqueta:string):boolean;
+var Arch,Etiq:PAnsiChar;
+    Res:PBool;
+    rt:boolean;
+begin
+Arch:=PAnsiChar(ArchivoIni);
+Etiq:=PAnsiChar(Etiqueta);
+Res:=PBool(false);
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLDeleteSectionIni := GetProcAddress(DLLHandle, 'DeleteSectionIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLDeleteSectionIni) then begin
+       Res:=DLLDeleteSectionIni(Arch,Etiq);
+       rt:=boolean(Res);
+    end
+    else
+       ShowMessage('No se existe Función: DeleteSectionIni');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.EncriptarStr(Texto,Key,TipoCifrador:string):string;
+var Txt,Ky,Tpo,Res:PAnsiChar;
+    rt:string;
+begin
+Txt:=PAnsiChar(Texto);
+Ky:=PAnsiChar(Key);
+Tpo:=PAnsiChar(TipoCifrador);
+Res:=PAnsiChar('');
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLEncriptarStr := GetProcAddress(DLLHandle, 'EncriptarStr');
+     {if procedure is found in the dll}
+    if Assigned(DLLEncriptarStr) then begin
+       Res:=DLLEncriptarStr(Txt,Ky,Tpo);
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: EncriptarStr');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.DencryptStr(Texto,Key,TipoCifrador:string):string;
+var Txt,Ky,Tpo,Res:PAnsiChar;
+    rt:string;
+begin
+Txt:=PAnsiChar(Texto);
+Ky:=PAnsiChar(Key);
+Tpo:=PAnsiChar(TipoCifrador);
+Res:=PAnsiChar('');
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLDencryptStr := GetProcAddress(DLLHandle, 'DencryptStr');
+     {if procedure is found in the dll}
+    if Assigned(DLLDencryptStr) then begin
+       Res:=DLLDencryptStr(Txt,Ky,Tpo);
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: DencryptStr');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function Tmodulo2.VersionDll():string;
+var Res:PAnsiChar;
+    rt:string;
+begin
+Res:=PAnsiChar('');
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLVersionDLL := GetProcAddress(DLLHandle, 'VersionDll');
+     {if procedure is found in the dll}
+    if Assigned(DLLVersionDLL) then begin
+       Res:=DLLVersionDLL();
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: VersionDll');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+
+procedure Tmodulo2.DataModuleCreate(Sender: TObject);
+var conec2,conec3:widestring;
+
+var BaseDatos,usr,key,Psw,Segu:string;
+    rs:integer;
+
+begin
+ path_todo:=getcurrentdir();
+ LstArchivos := TStringList.Create;
+ if FileExists(path_todo + '\sistemas.ini') then begin
+
+   //Componente de lectura de INI
+  Ini1:=TJvAppIniFileStorage.Create(nil);
+  Ini1.FileName:='sistemas.ini';
+  Ini1.Location:=flExeFile;
+
+  MyIP:=getIPs.Strings[0];
+  MyHost:=obtenerNombrePC;
+
+  Server:=INI1.IniFile.ReadString('GENERAL','Server','');
+  //  Server:=INI1.IniFile.ReadString('SQL','Host','127.0.0.1');
+  //Componente de Cifrado
+  Encrypt:=TTomEncryption.Create(nil);
+  Encrypt.Action:=atDecryption;
+
+  BaseDatos:=INI1.IniFile.ReadString('SQL','Base1','');
+  key:=INI1.IniFile.ReadString('SQL','Default1','');
+  usr:=INI1.IniFile.ReadString('SQL','Ini1','');
+  Psw:=INI1.IniFile.ReadString('SQL','Cl1','');
+
+  Encrypt.Input:=usr;
+  Encrypt.Key:=key;
+  Encrypt.Execute;
+  Usr:=Encrypt.Output;
+
+  Encrypt.Input:=Psw;
+  Encrypt.Key:=key;
+  Encrypt.Execute;
+  Psw:=Encrypt.Output;
+
+  try
+   //server:='192.168.0.4';//ReadIni(path_todo + '\sistemas.ini','BaseDeDatos','NombreServer','SERVER');
+   {Tratamiento de Coneccion1}
+   UsuPuntoV:=ReadIni(path_todo + '\sistemas.ini','PuntoVenta','Activo','');
+
+   //BaseDatos:=ReadIni(path_todo + '\sistemas.ini','SQL','Base1','Municipio');
+   //Conec2:='AplConInmo';//ConectionString('Resource','ConInmo',1,3,false,false);
+   //Conec3:='l#T(/6<j%sa)XjZ*h#=n$a{>oh?KaRaYFVKxQ}U%a>o@HxV+Y|ascJmW$O$n#DyI?$Mde0M7>+ggUHi((SWq(<&E[4DKoT3EUtiVt#X?Sw|mFXTrC)8q=kt>';//ConectionString('Resource','ConInmo',1,4,true,false);
+
+   ConectDbMuni:='Provider=SQLOLEDB.1;Password=system32' // + Psw  //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=jbrana' // + Usr //CUsronec2
+       + ';Initial Catalog=municipio;Data Source=192.168.0.4' // + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when possible=False;';
+
+   {ConectDbInti:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=Intimaciones;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when possible=False;';
+
+   ConectDbIntiNew:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=IntimacionesNew;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when ' +
+       'possible=False;';
+
+   ConectDbSucerp:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=SUCERP;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when possible=False;';
+
+   ConectDbPlanes:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=PlanesPagos;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when possible=False;';
+
+   ConectDbSeguridad:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=SeguridadWEB;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when possible=False;';
+
+   ConectDbCuit:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=CuitBCRA;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when '
+       + 'possible=False;';
+
+   ConectDbAuto:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=Automotores;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when '
+       + 'possible=False;';
+
+   ConectDbComTasa:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=ComercioTasa;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when '
+       + 'possible=False;';
+
+   ConectDbTransito:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=Transito;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when '
+       + 'possible=False;';
+
+   ConectDbMasivas:='Provider=SQLOLEDB.1;Password=' + Psw //chr(39) + conec3 + chr(39)
+       + ';Persist Security Info=True;User ID=' + Usr //Conec2
+       + ';Initial Catalog=Masivas;Data Source=' + server
+       + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+       + ';Use Encryption for Data=False;Tag with column collation when '
+       + 'possible=False;';
+
+}
+
+   Encrypt.Input:=INI1.IniFile.ReadString('SQL','PuntoV','');
+   Encrypt.Key:=key;
+   Encrypt.Execute;
+
+   PuntoV:=Encrypt.Output;
+
+  // a testing
+  //    ConectDbTFaltas:='Provider=SQLOLEDB.1;'
+  //          + 'Password=$uperu$er' //+ chr(39) + conec3 + chr(39)
+  //         + ';Persist Security Info=True;User ID=sa'
+  //         + ';Initial Catalog=InfraccionesMunicipales;Data Source=' + server
+  //         + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096'
+  //         + ';Use Encryption for Data=False;Tag with column collation when '
+  //         + 'possible=False;';
+  except
+   on Exception do
+      messagedlg('Error al Intento de Conección a la Base de Datos de SQL Server'
+      ,mterror,[mbok],0);
+  end;
+  //FTP.Host:=ReadIni(path_todo + '\sistemas.ini','FTP','FTPHost','');
+ end
+else messagedlg('No exite la Conección a Base de Datos de SQL Server',mterror,[mbok],0);
+
+//if cla_patron = '' then cla_patron:='13579013';
+end;
+
+Function Tmodulo2.Desencript(Valor,ValDefecto:string):string;
+var val,key:string;
+begin
+val:=ReadIni(path_todo + '\sistemas.ini',extrae(Valor,',',1),extrae(Valor,',',2),extrae(Valor,',',3));
+key:=ReadIni(path_todo + '\sistemas.ini',extrae(ValDefecto,',',1),extrae(ValDefecto,',',2),extrae(ValDefecto,',',3));
+Result:=DencryptStr(val,key,'T');
+end;
+
+
+Function Tmodulo2.ExisteDir(valor:string;EsDir:boolean):boolean;
+var t,iPesoArchivo:integer;
+    sDir:String;
+begin
+{LstArchivos.Clear;
+Result:=false;
+FTP.List(LstArchivos,'',False);
+for t := 0 to LstArchivos.Count -1 do begin
+  sDir:= LstArchivos[t];
+  iPesoArchivo:= FTP.Size(sDir);
+  if EsDir then begin
+    if (iPesoArchivo = -1) and (uppercase(sDir)=uppercase(valor)) then begin
+      Result:=true;
+      Exit;
+    end;
+  end
+  else begin
+     if (iPesoArchivo <> -1) and (uppercase(sDir)=uppercase(valor)) then begin
+      Result:=true;
+      Exit;
+    end;
+  end;
+end;  }
+end;
+
+Function Tmodulo2.ExisteArchivo(valor,DirectoriosInternos:string;EsDir:boolean):boolean;
+var t,iPesoArchivo:integer;
+    PathArchivo,DirInt,sDir:String;
+begin
+{LstArchivos.Clear;
+try
+  FTP.Connect;
+  for t:=1 to cuenta(DirectoriosInternos,'/') + 1 do begin
+    DirInt:=extrae(DirectoriosInternos,'/',t);
+    if DirInt <> '' then begin
+      if not ExisteDir(DirInt,true) then begin
+        Result:=false;
+        FTP.Disconnect;
+        exit;
+      end
+      else FTP.ChangeDir(DirInt);
+    end;
+  end;
+
+  FTP.List(LstArchivos,'',False);
+  for t := 0 to LstArchivos.Count -1 do begin
+    sDir:= LstArchivos[t];
+    iPesoArchivo:= FTP.Size(sDir);
+    if EsDir then begin
+      if (iPesoArchivo = -1) and (uppercase(sDir)=uppercase(valor)) then begin
+        Result:=true;
+        break;
+      end;
+    end
+    else begin
+       if (iPesoArchivo <> -1) and (uppercase(sDir)=uppercase(valor)) then begin
+        Result:=true;
+        break;
+      end;
+    end;
+  end;
+  FTP.Disconnect;
+except
+  FTP.Disconnect;
+  Result:=false;
+  raise Exception.Create( 'No se ha podido conectar con el servidor ' + FTP.Host );
+end;  }
+end;
+
+function Tmodulo2.EnviarArchivoFTP(NombreArchivo,PathDestino,DirectoriosInternos:string;BorrarAlCopiar:boolean):boolean;
+var t:integer;
+    PathArchivo,DirInt:string;
+begin
+{ try
+  FTP.Connect;
+  for t:=1 to cuenta(DirectoriosInternos,'/') + 1 do begin
+   DirInt:=extrae(DirectoriosInternos,'/',t);
+   if DirInt <> '' then begin
+    if not ExisteDir(DirInt,true) then FTP.MakeDir(DirInt);
+    FTP.ChangeDir(DirInt);
+   end;
+  end;
+
+  if BorrarAlCopiar then begin
+   if ExisteDir(NombreArchivo,false) then FTP.Delete(PathDestino);
+  end;
+  FTP.Put( NombreArchivo , PathDestino, true);
+  Result:=true;
+ except
+  Result:=false;
+  raise Exception.Create( 'No se ha podido conectar con el servidor ' + FTP.Host );
+ end;
+ FTP.Disconnect;      }
+end;
+
+function Tmodulo2.ExtraerArchivoFTP(NombreArchivo,PathDestino,DirectoriosInternos:string):boolean;
+var t:integer;
+    DirInt:string;
+begin
+{ try
+  FTP.Connect;
+  for t:=1 to cuenta(DirectoriosInternos,'/') + 1 do begin
+    DirInt:=extrae(DirectoriosInternos,'/',t);
+    FTP.ChangeDir(DirInt);
+  end;
+  FTP.Get(NombreArchivo,PathDestino, true);
+  Result:=true;
+ except
+  Result:=false;
+  raise Exception.Create( 'No se ha podido conectar con el servidor ' + FTP.Host );
+ end;
+ FTP.Disconnect;   }
+end;
+
+function Tmodulo2.SetearFTP(LecturaEscritura:boolean):boolean;
+begin
+{ try
+  FTP.Host:=ReadIni(path_todo + '\sistemas.ini','FTP','FTPHost','');
+  if LecturaEscritura then begin
+    FTP.Username:=Desencript('FTP,FTPUsuario2,','FTP,FTPK2,');
+    FTP.Password:=Desencript('FTP,FTPP2,','FTP,FTPK2,');
+  end
+  else begin
+    FTP.Username:=Desencript('FTP,FTPUsuario1,','FTP,FTPK1,');
+    FTP.Password:=Desencript('FTP,FTPP1,','FTP,FTPK1,');
+  end;
+  Result:=true;
+ except
+  Result:=false;
+ end;   }
+end;
+
+Function Tmodulo2.TamanioArchivoFTP(NombreArchivo,DirectoriosInternos:string):integer;
+var t:integer;
+    DirInt:string;
+begin
+{ try
+  FTP.Connect;
+  for t:=1 to cuenta(DirectoriosInternos,'/') + 1 do begin
+    DirInt:=extrae(DirectoriosInternos,'/',t);
+    FTP.ChangeDir(DirInt);
+  end;
+  Result:=FTP.Size(NombreArchivo);
+ except
+  Result:=0;
+ end;
+ FTP.Disconnect;   }
+end;
+
+Function Tmodulo2.BorrarArchivoFTP(NombreArchivo,DirectoriosInternos:string):boolean;
+var t:integer;
+    DirInt:string;
+begin
+{ try
+  FTP.Connect;
+  for t:=1 to cuenta(DirectoriosInternos,'/') + 1 do begin
+    DirInt:=extrae(DirectoriosInternos,'/',t);
+    FTP.ChangeDir(DirInt);
+  end;
+  if ExisteDir(NombreArchivo,false) then FTP.Delete(NombreArchivo);
+  Result:=true;
+ except
+  Result:=false;
+  raise Exception.Create( 'No se ha podido conectar con el servidor ' + FTP.Host );
+ end;
+ FTP.Disconnect;    }
+end;
+
+
+procedure TModulo2.CargaCombo(var Combo:TComboBox;  comando,ConectDB:Widestring);
+var k,z:integer;
+    DataSet1:TADODataSet;
+    MiObjeto:TComboClase;
+begin
+Combo.Clear;
+DataSet1:=TADODataSet.Create(nil);
+DataSet1.ConnectionString:=ConectDB;
+DataSet1.CommandText:=Comando;
+DataSet1.Open;
+for k:=1 to DataSet1.RecordCount do begin
+  DataSet1.RecNo:=k;
+  MiObjeto:=TComboClase.Create;
+  for z:=1 to DataSet1.FieldCount-1 do begin
+    if z = 1 then MiObjeto.Identificador:=trim(DataSet1.Fields[1].AsString);
+    if z = 2 then MiObjeto.Param2:=trim(DataSet1.Fields[2].AsString);
+    if z = 3 then MiObjeto.Param3:=trim(DataSet1.Fields[3].AsString);
+    if z = 4 then MiObjeto.Param4:=trim(DataSet1.Fields[4].AsString);
+  end;
+  Combo.Items.AddObject(trim(DataSet1.Fields[0].AsString),MiObjeto);
+end;
+DataSet1.Close;
+DataSet1.Connection:=nil;
+DataSet1.Free;
+Combo.ItemIndex:=0;
+end;
+
+procedure TModulo2.LiberarCombo(var Combo:TComboBox);
+var q:integer;
+begin
+For q:= Combo.items.count-1 downto 0 do
+   TComboClase(Combo.items.objects[q]).Free;
+end;
+
+end.

@@ -1,0 +1,22 @@
+program CajaPagosPosnet;
+
+uses
+  Forms,
+  Principal in 'Principal.pas' {Principal_Menu},
+  Modulo in 'Modulo.pas' {Modulo2: TDataModule},
+  Unidad in 'Unidad.pas',
+  //Asig_Clave2 in '..\Fuentes ConInmo\Asig_Clave2.pas' {Asignacion_Clave2},
+  //AM_Mail in 'AM_Mail.pas' {AM_Mails},
+  Acceso1 in 'Acceso1.pas' {Acceso};
+  //AM_Actividad in 'AM_Actividad.pas' {AM_Actividades},
+  //BloqdesbloqPorcuit in 'BloqdesbloqPorcuit.pas' {BloqDesbloqTH},
+  //ModifDigitoVerif in 'ModifDigitoVerif.pas' {modifDigV};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.CreateForm(TModulo2, Modulo2);
+  Application.CreateForm(TPrincipal_Menu, Principal_Menu);
+  Application.Run;
+end.

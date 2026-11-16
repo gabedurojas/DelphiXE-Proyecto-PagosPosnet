@@ -1,0 +1,988 @@
+unit Asig_Clave;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs,ADODB, StrUtils, DB, StdCtrls, ExtCtrls, Grids, DBGrids, DateUtils,
+  JvExDBGrids, JvDBGrid, JvgGroupBox, ComCtrls, Buttons, JvExButtons,
+  JvBitBtn, ToolWin, Menus, RpDefine, RpBase, RpSystem, JvExControls,
+  JvScrollText, ImgList, JvExGrids, JvStringGrid, Mask, jpeg, JvSimLogic,
+  JvComponentBase, JvDBGridExport;
+
+type THackStringGrid = class(TJvStringGrid);
+type
+   TAsignacion_Clave = class(TForm)
+    Barra1: TStatusBar;
+    ToolBar1: TToolBar;
+    BORRA: TJvBitBtn;
+    SALE: TJvBitBtn;
+    PC1: TPageControl;
+    TabSheet1: TTabSheet;
+    JvgGroupBox2: TJvgGroupBox;
+    JvDBGrid1: TJvDBGrid;
+    JvgGroupBox1: TJvgGroupBox;
+    LB1: TLabel;
+    R1: TRadioButton;
+    R2: TRadioButton;
+    ONOMB: TEdit;
+    ODNI: TEdit;
+    Buscar: TJvBitBtn;
+    R3: TRadioButton;
+    DTS: TDataSource;
+    DTS2: TDataSource;
+    ToolButton1: TToolButton;
+    ToolButton3: TToolButton;
+    ToolButton4: TToolButton;
+    DTS3: TDataSource;
+    RvS: TRvSystem;                                        
+    PopupMenu2: TPopupMenu;
+    EliminarActividad1: TMenuItem;
+    DTS4: TDataSource;
+    JvgGroupBox7: TJvgGroupBox;
+    Splitter4: TSplitter;
+    DTS5: TDataSource;
+    DTS6: TDataSource;
+    ToolButton5: TToolButton;
+    Label10: TLabel;
+    DataSource1: TDataSource;
+    DataSource2: TDataSource;
+    ImageList1: TImageList;
+    DTSRecV: TDataSource;
+    PopupMenu3: TPopupMenu;
+    AplicarExcensionCondonacion1: TMenuItem;
+    R4: TRadioButton;
+    DataSource3: TDataSource;
+    JvDBGridCSVExport1: TJvDBGridCSVExport;
+    PopupMenu4: TPopupMenu;
+    EXPORTARDECLARACIONES1: TMenuItem;
+    Image3: TImage;
+    DataSource4: TDataSource;
+    GroupBox10: TGroupBox;
+    Shape2: TShape;
+    Label28: TLabel;
+    DBGrid1: TDBGrid;
+    procedure FormCreate(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure Coloca1(nro:byte);
+    procedure SALEClick(Sender: TObject);
+    procedure R1Click(Sender: TObject);
+    procedure R2Click(Sender: TObject);
+    procedure ODNIKeyPress(Sender: TObject; var Key: Char);
+    procedure BuscarClick(Sender: TObject);
+    procedure JvDBGrid1CellClick(Column: TColumn);
+    procedure EliminarActividad1Click(Sender: TObject);
+    procedure BORRAClick(Sender: TObject);
+    procedure ONOMBKeyPress(Sender: TObject; var Key: Char);
+    procedure VerElArea(nro:byte);
+    procedure R4Click(Sender: TObject);
+    procedure DBGrid1DrawColumnCell(Sender: TObject; const Rect: TRect;
+      DataCol: Integer; Column: TColumn; State: TGridDrawState);
+  private
+    COMERCIOS,DOMIC,ACTIV,ALICUO,CANTCOM,ESTCUE,DDJJ,DataSet1,DataSetArea,
+    ESTCUECONDO,ESTCUEESP,DataSetMax,DataSetPagos,DDJJDET,EXCIM,
+    RECVARIOS,MULTASTEMP,DataSetPlanes,DDJJ1,MAX,MULTIPLEPAGO:TADODataSet;
+    Com1,Com2:TADOCommand;
+    gh,tipoimp,ConPlan:boolean;
+    totinteres,totcuotas,totselec,acum,totalplanpago,totalgral:real;  ///,sumaimp,sumaint
+    sumaimp,sumaint,laduedaselec,total_deuda:variant;
+    sumtot:string;
+    //ConPlan:boolean;acum:real;
+    porth,recvario,conta,reg,NroSubRubro,pagmultiples:integer;
+    origencobro,impcobro,feccobro,nrorec,periodo,domicilio,maximo,identth,
+    leyend,idcontrib,rubro, elcuim, baseimp,elperiodo,fecvto,fantasia,
+    periododec, elbarrio,elcalle,elnro, elperiodo1,
+    elManzana,elSector,elParcela,elPiso,elLocal,elDpto,elCasa,elTorre,elPostal,
+    laregimen,nroliq,nrocobro,elcodbarf,NroSubRubroliq,DescriSubRubroliq,
+    idClasifAct, CodRent,Concept,elPorcentaje,elMinimo,elMinimoUT,codigo,fechas,impuesto,cobro,tipoimpuesto :string;
+    FechaActual,Clv,PathLogo,newmail,dato,usucondona,usucom,usuliqui,level,valperiodo,usuimp,perimulta,laidth:string;
+    Cnx2:TADOConnection;{ Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Asignacion_Clave: TAsignacion_Clave;
+
+implementation
+
+uses Modulo, Unidad  ;
+
+{$R *.dfm}
+
+procedure TAsignacion_Clave.FormCreate(Sender: TObject);
+begin
+ gh:=false;
+ Cnx2:=TADOConnection.Create(nil);
+ Cnx2.LoginPrompt:=false;
+ Cnx2.ConnectionString:=Modulo2.ConecMuni;
+end;
+
+procedure TAsignacion_Clave.FormActivate(Sender: TObject);
+var fec:TDateTime;
+begin
+ if not(gh) then begin
+  gh:=true;
+  FechaActual:=strcut(Fec_System(),10);
+  PC1.ActivePage:=PC1.Pages[0];
+  DataSetPlanes:=TADODataSet.Create(nil);
+  CANTCOM:=TADODataSet.Create(nil);
+  COMERCIOS:=TADODataSet.Create(nil);
+  DOMIC:=TADODataSet.Create(nil);
+  ACTIV:=TADODataSet.Create(nil);
+  ALICUO:=TADODataSet.Create(nil);
+  ESTCUE:=TADODataSet.Create(nil);
+  ESTCUEESP:=TADODataSet.Create(nil);
+  ESTCUECONDO:=TADODataSet.Create(nil);
+  DataSetMax:=TADODataSet.Create(nil);
+  DDJJ:=TADODataSet.Create(nil);
+  DDJJ1:=TADODataSet.Create(nil);
+  DataSet1:=TADODataSet.Create(nil);
+  DataSetArea:=TADODataSet.Create(nil);
+  DDJJDET:=TADODataSet.Create(nil);
+  EXCIM:=TADODataSet.Create(nil);
+  RECVARIOS:=TADODataSet.Create(nil);
+  MULTASTEMP:=TADODataSet.Create(nil);
+  //DataSetRubros:=TADODataSet.Create(nil);
+  MULTIPLEPAGO:=TADODataSet.Create(nil);
+
+  DataSetPagos:=TADODataSet.Create(nil);
+  PathLogo:=modulo2.path_todo + '\Imagenes\' + modulo2.ReadIni(modulo2.PathIni,'Imagenes','ArchivoImagen','');
+  //pc1.Pages[4].TabVisible:=false;
+  //pc1.Pages[5].TabVisible:=false;
+  //pc1.Pages[6].TabVisible:=false;
+
+  r2.OnClick(Sender);
+  VerElArea(1);
+  laduedaselec:=0;
+
+  ONOMB.Visible:=false;
+  ODNI.Visible:=true;
+  LB1.Caption:='Ingrese Nº CUIT';
+  ODNI.Text:='00000000000';
+  ODNI.MaxLength:=11;
+  ODNI.SetFocus;
+ end;
+end;
+
+procedure TAsignacion_Clave.VerElArea(nro:byte);
+var area,nivel:string;
+begin
+ {DataSetArea.ConnectionString:=modulo2.ConecMuni;
+ if nro=1 then begin
+  VerModulo(strtoint(modulo2.usu_nro));
+  if modulo2.UsuNvl <> '0' then begin
+   if modulo2.UsuNvl = '1' then PopupMenu2.Items[0].Visible:=true
+    else PopupMenu2.Items[0].Visible:=false;
+  end
+  else begin
+   PopupMenu2.Items[0].Visible:=false;
+  end;
+ end;   }
+end;
+
+procedure TAsignacion_Clave.Coloca1(nro:byte);
+var txt,IdCom:widestring;
+    t,s,NroArray,y,c,d:integer;
+    nrore:string;
+begin
+ Modulo2.ObjConexionMuni:=TADOConnection.Create(nil);
+ Modulo2.ObjConexionMuni.LoginPrompt:=false;
+ Modulo2.ObjConexionMuni.ConnectionString:=modulo2.ConecMuni;
+
+ Modulo2.ObjConexionComercio:=TADOConnection.Create(nil);
+ Modulo2.ObjConexionComercio.LoginPrompt:=false;
+ Modulo2.ObjConexionComercio.ConnectionString:=modulo2.ConecSql;
+ if nro = 0 then begin
+ { DataSetRubros.Close;
+  DataSetRubros.Connection:=modulo2.ObjConexionComercio;
+  DataSetRubros.CommandText:='SELECT SubRubro,Detalle FROM VLosRubrosComercios';
+  DataSetRubros.Open;
+  if not DataSetRubros.IsEmpty then begin
+   for t:=1 to DataSetRubros.RecordCount do begin
+    DataSetRubros.RecNo:=t;
+    grillarubros.RowCount:=t+1;
+    grillarubros.Cells[0,t]:=trim(DataSetRubros.Fields[0].AsString);
+    grillarubros.Cells[1,t]:=trim(DataSetRubros.Fields[1].AsString);
+   end;
+  end
+  else begin
+   DataSetRubros.Close;
+  end;
+  DataSetRubros.Connection :=nil; }
+ end;
+ if nro=1 then begin
+  COMERCIOS.Close;
+  COMERCIOS.Connection:=modulo2.ObjConexionComercio;
+  DTS.DataSet:=COMERCIOS;
+  Barra1.Panels[0].Text:='Buscando en Base de Datos... por favor espere!!';
+  //if R4.Checked then begin
+   txt:='SELECT IdComercio,TH,FechaInicio,FechaHabilitacion,Denominacion,Cuim,NroDni,Contribuyente,'
+   +'Mail,Responsable,CUIT,IdTh,(select IdContribuyente from SeguridadWEB.dbo.ContribuyentesIdentidad where '
+   +' CUIM=a.Cuim and activo=1) as Idcont FROM Fn_ComercioDatosDetPorCuit ('+ trim(ODNI.Text) + ') as a';
+  //end
+  //else begin
+   //if R1.Checked then txt:=ODNI.Text + ',NULL,NULL';
+   //if R2.Checked then txt:='NULL,' + chr(39) + ONOMB.Text + chr(39) + ',NULL';
+   //if R3.Checked then txt:='NULL,NULL,' + ODNI.Text;
+   //txt:='SELECT IdComercio,TH,FechaInicio,FechaHabilitacion,Denominacion,Cuim,NroDni,Contribuyente,'
+   //+'Mail,Responsable,CUIT,IdTh,(select IdContribuyente from SeguridadWEB.dbo.ContribuyentesIdentidad where '
+   //+' CUIM=a.Cuim and activo=1) as Idcont FROM Fn_ComercioDatosDet (' + txt + ') as a';
+  //end;
+  COMERCIOS.CommandText:= txt;
+  COMERCIOS.Open;
+  if not COMERCIOS.IsEmpty then begin
+   JvDBGrid1.Columns[0].Width:=60;
+   JvDBGrid1.Columns[1].Width:=80;
+   JvDBGrid1.Columns[2].Width:=85;
+   JvDBGrid1.Columns[3].Width:=85;
+   JvDBGrid1.Columns[4].Width:=290;
+   JvDBGrid1.Columns[5].Width:=1;
+   JvDBGrid1.Columns[6].Width:=1;
+   JvDBGrid1.Columns[7].Width:=290;
+   JvDBGrid1.Columns[8].Width:=250;
+   JvDBGrid1.Columns[9].Width:=20;
+   JvDBGrid1.Columns[10].Width:=1;
+   JvDBGrid1.Columns[11].Width:=1;
+   JvDBGrid1.Columns[12].Width:=1;
+   Barra1.Panels[0].Text:='Datos encontrado y en pantalla...';
+  end
+  else begin
+   Barra1.Panels[0].Text:='Ningún dato encontrado!!';
+   messagedlg('ERROR!! No existe Comercio que coincida con la busqueda...',mtError,[mbok],0);
+   if R1.Checked then ODNI.SetFocus;
+   if R2.Checked then ONOMB.SetFocus;
+   if R3.Checked then ODNI.SetFocus;
+   if R4.Checked then ODNI.SetFocus;
+   COMERCIOS.Close;
+  end;
+  COMERCIOS.Connection :=nil;
+ end;
+ if nro = 2 then begin
+  DOMIC.Close;
+  DOMIC.Connection:=modulo2.ObjConexionComercio;
+  DTS2.DataSet:=DOMIC;
+  DOMIC.CommandText:='SELECT distinct Id,Barrio,Calle,Altura,Manzana,Sector,Parcela,Piso,Local,Dpto,Casa,Torre,Postal'
+  + ' FROM Fn_ComerciosDomicilio (' + COMERCIOS.Fields[0].AsString + ',null)';
+  DOMIC.Open;
+  if not DOMIC.IsEmpty then begin
+   coloca1(5);
+   for t:=1 to DOMIC.RecordCount do begin
+    DOMIC.RecNo:=1;
+    elbarrio:=trim(DOMIC.Fields[1].AsString);
+    elcalle:=trim(DOMIC.Fields[2].AsString);
+    elnro:=trim(DOMIC.Fields[3].AsString);
+    elManzana:=trim(DOMIC.Fields[4].AsString);
+    elSector:=trim(DOMIC.Fields[5].AsString);
+    elParcela:=trim(DOMIC.Fields[6].AsString);
+    elPiso:=trim(DOMIC.Fields[7].AsString);
+    elLocal:=trim(DOMIC.Fields[8].AsString);
+    elDpto:=trim(DOMIC.Fields[9].AsString);
+    elCasa:=trim(DOMIC.Fields[10].AsString);
+    elTorre:=trim(DOMIC.Fields[11].AsString);
+    elPostal:=trim(DOMIC.Fields[12].AsString);
+   end;
+  end
+  else begin
+   messagedlg('ATENCION!! Este IDComercio No Presenta Domicilios',mtWarning,[mbok],0);
+   DOMIC.Close;
+  end;
+  DOMIC.Connection :=nil;
+ end;
+ if nro = 2 then begin
+  ACTIV.Close;
+  ACTIV.Connection:=modulo2.ObjConexionComercio;
+  DTS3.DataSet:=ACTIV;
+  ACTIV.CommandText:='SELECT TH,FechaHabilitacion,FechaVencimiento,SupCubierta,SupDesc,RubroRentas,DetalleRubro,IdTh'
+  + ' FROM Fn_ComercioDatos (' + COMERCIOS.Fields[0].AsString + ')';
+  ACTIV.Open;
+  if ACTIV.IsEmpty then begin
+   messagedlg('ATENCION!! Este IDComercio No Presenta Datos del Comercio',mtWarning,[mbok],0);
+   ACTIV.Close;
+  end
+  else begin
+     //ACTIV.Close;
+  end;
+  ACTIV.Connection :=nil;
+ end;
+ if nro = 3 then begin
+  {if not ACTIV.IsEmpty then begin
+   ALICUO.Close;
+   ALICUO.Connection:=modulo2.ObjConexionComercio;
+   DTS4.DataSet:=ALICUO;
+   ALICUO.CommandText:='SELECT IdClasificacionActividad as IdClasifAct,CodigoRentas,Concepto,Porcentaje/1000 as Porcentaje,'
+   + 'Minimo,MinimoUT FROM Fn_SinInscripcionActividades (' + ACTIV.Fields[7].AsString + ')';   //COMERCIOS.Fields[0].AsString
+   ALICUO.Open;
+   if ALICUO.IsEmpty then begin
+    messagedlg('ATENCION!! Este IDComercio No PresentaInscripciones',mtWarning,[mbok],0);
+    ALICUO.Close;
+   end
+   else begin
+    JvDBGrid4.Columns[2].Width:=400;
+    JvDBGrid4.Columns[3].Width:=60;
+    JvDBGrid4.Columns[4].Width:=40;
+    JvDBGrid4.Columns[5].Width:=60;
+   end;
+  end
+  else begin
+    ACTIV.Close;
+  end;
+  ALICUO.Connection :=nil;   }
+ end;
+ if nro = 3 then begin
+  if not ACTIV.IsEmpty then begin
+   CANTCOM.Close;
+   CANTCOM.Connection:=modulo2.ObjConexionComercio;
+   DTS5.DataSet:=CANTCOM;
+   CANTCOM.CommandText:='SELECT ComerciosTH.Id,TH,FechaBaja,Provisorio,FechaHabilitacion,FechaVencimiento,ComerciosTH.Observaciones'
+   + ' FROM ComerciosTH INNER JOIN ComerciosTHDetalle ON ComerciosTHDetalle.IdTH = ComerciosTH.Id WHERE '
+   + '(ComerciosTHDetalle.Activo=1) and (IdComercio=' + COMERCIOS.Fields[0].AsString + ')';
+   CANTCOM.Open;
+   if ACTIV.IsEmpty then begin
+    CANTCOM.Close;
+   end
+   else begin
+    //CANTCOM.Close;
+   end;
+  end
+  else begin
+   ACTIV.Close
+  end;
+  CANTCOM.Connection :=nil;
+ end;
+ if nro = 4 then begin
+  ConPlan:=false;
+  DataSetPagos.ConnectionString:=modulo2.ConecMuni;
+  if not ACTIV.IsEmpty then begin
+   ESTCUE.Close;
+   ESTCUE.Connection:=modulo2.ObjConexionMuni;
+   DTS6.DataSet:=ESTCUE;
+   ESTCUE.CommandText:='SELECT idcomercio,th,impuesto,subrubro,nrocuota,anio,periodo,'
+   +'fechavencimiento,importecuota,InteresAcumulado,porcentajeaplicado,estadovto,'
+   //+'case when Subrubro <> 1111801 then 0 else case when OrigenPago = ''Acreditaciones'' then 0 else InteresAcumulado end end as interesacumulado,'
+   //+'case when Subrubro <> 1111801 then 0 else case when OrigenPago = ''Acreditaciones'' then 0 else porcentajeaplicado end end as porcentajeaplicado,'
+   +'estadopago,'
+   +'origenpago,IdEximision ,nrorecibo,PorcentajeEximido ,ImporteEximido,idth'
+   +' FROM EstadoCuentaComercioTasaIdCnExim (' + COMERCIOS.Fields[0].AsString +  ',' + chr(39) + FechaActual + chr(39) + ',5)';
+   ESTCUE.Open;
+   {DataSetPlanes.ConnectionString:=modulo2.ConecMuni;
+   DataSetPlanes.CommandText:='SELECT distinct nroplan,identificador,codigoobjeto,estadoplan,cantidadcuotasimpagas,totaldeudaplan'
+   + ' FROM ObjetosEnPlanesdePago (' + COMERCIOS.Fields[11].AsString+ ' , 1111801) '
+   + ' where totaldeudaplan > 0 and (EstadoPlan = ''VIGENTE'' or EstadoPlan =''CAIDO'') and identificador is not null';
+   DataSetPlanes.Open;
+   if not DataSetPlanes.IsEmpty  then begin
+    ConPlan:=true;
+    for t:=1 to DataSetPlanes.RecordCount do begin
+     DataSetPlanes.RecNo:=t;
+     grillasplanes.RowCount:=t+1;
+     grillasplanes.Cells[0,t]:=trim(DataSetPlanes.Fields[0].AsString);
+     grillasplanes.Cells[1,t]:=trim(DataSetPlanes.Fields[1].AsString);
+     grillasplanes.Cells[2,t]:=trim(DataSetPlanes.Fields[2].AsString);
+     grillasplanes.Cells[3,t]:=trim(DataSetPlanes.Fields[3].AsString);
+     grillasplanes.Cells[4,t]:=trim(DataSetPlanes.Fields[4].AsString);
+     grillasplanes.Cells[5,t]:=trim(DataSetPlanes.Fields[5].AsString);
+     totalplanpago := totalplanpago + strtofloat(grillasplanes.Cells[5,t]);
+    end;
+   end
+   else begin
+    ConPlan:=false;
+    totalplanpago:=0;
+    for c:=0 to grillasplanes.ColCount-1 do
+     for d:=1 to grillasplanes.RowCount-1 do grillasplanes.Cells[c,d]:='';
+    grillasplanes.RowCount:=2;
+   end;
+   DataSetPlanes.Close;
+   DataSetPlanes.Connection:=nil;  }
+   if not ESTCUE.IsEmpty then begin
+    for t:=1 to ESTCUE.RecordCount do begin
+     ESTCUE.RecNo:=t;
+     if (trim(ESTCUE.Fields[3].AsString) = '1111801') and (trim(ESTCUE.Fields[12].AsString) = 'PAGADO') then begin
+      periodo:=trim(ESTCUE.Fields[6].AsString);
+      impcobro:=trim(ESTCUE.Fields[16].AsString);
+      feccobro:=trim(ESTCUE.Fields[14].AsString);
+      nrorec:=trim(ESTCUE.Fields[15].AsString);
+     end;
+    end;
+    Acum:=0;
+
+    for t:=1 to ESTCUE.RecordCount do begin
+     ESTCUE.RecNo:=t;
+     if (trim(ESTCUE.Fields[3].AsString) = '1111801') and
+      (trim(ESTCUE.Fields[11].AsString) = 'VENCIDO') AND (trim(ESTCUE.Fields[12].AsString) = 'DEUDA')    then
+      Acum:=Acum + ESTCUE.Fields[8].AsFloat + ESTCUE.Fields[9].AsFloat;
+    end;
+
+    sumaimp:=0;
+    sumaint:=0;
+
+    for t:=1 to ESTCUE.RecordCount do begin
+     ESTCUE.RecNo:=t;
+     if (trim(ESTCUE.Fields[13].AsString) = 'MULTIPLES')  then
+      pagmultiples := pagmultiples + 1;
+    end;
+
+   end
+   else begin
+    ESTCUE.Close;
+   end;
+  end
+  else begin
+    ACTIV.Close;
+  end;
+  ESTCUE.Connection :=nil;
+ end;
+ if nro = 5 then begin
+  dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:= 'SELECT ''Bº '' + Barrio + '' - Calle:'' + Calle + '' Nº:'' + convert(nvarchar(10),Altura) '
+  + 'FROM Fn_ComerciosDomicilio('+ COMERCIOS.Fields[0].AsString + ',null) where Postal=1';
+  dataset1.Open;
+  if not dataset1.IsEmpty then begin
+   domicilio:=dataset1.Fields[0].AsString;
+  end
+  else begin
+   dataset1.Close;
+  end;
+  dataset1.Connection :=nil;
+ end;
+ if nro = 6  then begin
+ { DDJJDET.Close;
+  DDJJDET.Connection:=modulo2.ObjConexionComercio;
+  DataSource1.DataSet:=DDJJDET;
+  DDJJDET.CommandText:= 'SELECT ComerciosIncripciones.Id,ComerciosIncripciones.IdComercio,'
+  + ' convert(char(10),ComerciosIncripciones.FechaInscripcion,103) as fecha, ComerciosIncripciones.IdTH,TiposRegimenes.Detalle AS TipoRegimen,'
+  + ' ''Habilitado'' = case when dbo.ComerciosIncripciones.Habilitado = 1 then  ''SI'' else ''NO'' end , '
+  + ' (SELECT COUNT(*) FROM [ComercioTasa].[dbo].[Fn_ConsultaDDJJPorIdComercio] ('+ COMERCIOS.Fields[0].AsString + ' ,ComerciosIncripciones.Id ,0)) as CantDDJJ '
+  + ' FROM ComerciosIncripciones INNER JOIN TiposRegimenes ON TiposRegimenes.Id = ComerciosIncripciones.TipoRegimen'
+  + ' WHERE (ComerciosIncripciones.IdComercio = '+ COMERCIOS.Fields[0].AsString + ') AND (ComerciosIncripciones.Anulado = 0)';
+  DDJJDET.Open;
+  if not DDJJDET.IsEmpty then begin
+   cantincri.Text:=inttostr(DDJJDET.RecordCount) ;
+   try
+    DataSource1.DataSet.EnableControls;
+    DataSource1.dataset.first;
+    while not DBGrid2.datasource.dataset.eof do begin
+     if (trim(DBGrid2.fields[5].value)='SI')   then begin
+      laregimen := DBGrid2.datasource.dataset.fieldbyname('TipoRegimen').AsVariant;
+     end;
+     DBGrid2.datasource.dataset.Next;
+    end;
+   finally
+    DBGrid2.datasource.dataset.EnableControls;
+   end;
+
+  end
+  else begin
+   cantincri.Text:='0';
+   DDJJDET.Close;
+  end;
+  DDJJDET.Connection :=nil;   }
+ end;
+ if nro = 7 then begin
+ { ACTIV.Close;
+  ACTIV.Connection:=modulo2.ObjConexionComercio;
+  DTS3.DataSet:=ACTIV;
+  ACTIV.CommandText:='SELECT TH,FechaHabilitacion,FechaVencimiento,SupCubierta,SupDesc,RubroRentas,DetalleRubro,IdTh'
+  + ' FROM Fn_ComercioDatosPorTH (' + COMERCIOS.Fields[0].AsString + ',' + inttostr(porth) + ')';
+  ACTIV.Open;
+  if not ACTIV.IsEmpty then begin
+   comer.Text:=inttostr(ACTIV.RecordCount);
+  end
+  else begin
+   comer.Text:='0';
+   messagedlg('ATENCION!! Este IDComercio No Presenta' + chr(13) + 'Actividades registradas',mtWarning,[mbok],0);
+   ACTIV.Close;
+  end;
+  ACTIV.Connection :=nil; }
+ end;
+ if nro = 8 then begin
+  {if not ACTIV.IsEmpty then begin
+   ALICUO.Close;
+   ALICUO.Connection:=modulo2.ObjConexionComercio;
+   DTS4.DataSet:=ALICUO;
+   ALICUO.CommandText:='SELECT IdClasificacionActividad as IdClasifAct,CodigoRentas,Concepto,Porcentaje/1000 as Porcentaje,Minimo,'
+   +'MinimoUT FROM Fn_SinInscripcionActividades(' + inttostr(porth) + ')';
+   ALICUO.Open;
+   if not ALICUO.IsEmpty then begin
+    ali.Text:=inttostr(ALICUO.RecordCount);
+    JvDBGrid4.Columns[2].Width:=450;
+    JvDBGrid4.Columns[3].Width:=60;
+    JvDBGrid4.Columns[4].Width:=40;
+    JvDBGrid4.Columns[5].Width:=60;
+   end
+   else begin
+    ali.Text:='0';
+    ALICUO.Close;
+   end;
+  end
+  else begin
+    ACTIV.Close;
+  end;
+  ALICUO.Connection :=nil;    }
+ end;
+ if nro = 9 then begin
+  DOMIC.Close;
+  DOMIC.Connection:=modulo2.ObjConexionComercio;
+  DTS2.DataSet:=DOMIC;
+  DOMIC.CommandText:='SELECT Id,Barrio,Calle,Altura,Manzana,Sector,Parcela,Piso,Local,Dpto,Casa,Torre,Postal'
+  + ' FROM Fn_ComerciosDomicilio(' + COMERCIOS.Fields[0].AsString + ',null)';
+  DOMIC.Open;
+  if not DOMIC.IsEmpty then begin
+   coloca1(5);
+  end
+  else begin
+   DOMIC.Close;
+  end;
+  DOMIC.Connection :=nil;
+ end;
+ if nro = 10  then begin
+ { DDJJ.Close;
+  DDJJ.Connection:=modulo2.ObjConexionComercio;
+  DataSource2.DataSet:=DDJJ;
+  if cb1.Checked then begin
+   if StrToInt(modulo2.UsuNvl) > 1 then DDJJ.CommandText:= 'SELECT CONVERT(CHAR(10),fechadeclaracion,103) AS fechadeclaracion,periodo,IdClasificacionActividad,'
+   +'codrenta,detallerubro,case when FechaBaja IS null then ''0'' else ''1'' end as Baja from '
+   +' Fn_ConsultaDDJJPorIdComercio ('+ l1.Text + ',' + identth +',0)'
+    else DDJJ.CommandText:= 'SELECT *,case when FechaBaja IS null then ''0'' else ''1'' end as Baja from Fn_ConsultaDDJJPorIdComercio (' +  l1.Text + ',' + identth +',0)';
+  end
+  else begin
+   if StrToInt(modulo2.UsuNvl) > 1 then DDJJ.CommandText:= 'SELECT CONVERT(CHAR(10),fechadeclaracion,103) AS Fechadeclaracion,periodo,IdClasificacionActividad,'
+   +'codrenta,detallerubro,case when FechaBaja IS null then ''0'' else ''1'' end as Baja from '
+   +' Fn_ConsultaDDJJPorIdComercio ('+ l1.Text + ',' + identth +',1)'
+    else DDJJ.CommandText:= 'SELECT *,case when FechaBaja IS null then ''0'' else ''1'' end as Baja from Fn_ConsultaDDJJPorIdComercio (' +  l1.Text + ',' + identth +',1)';
+  end;
+  DDJJ.Open;
+  if not DDJJ.IsEmpty then begin
+   DBGrid1.Columns[0].Width:=110;
+   DBGrid1.Columns[1].Width:=50;
+   DBGrid1.Columns[3].Width:=60;
+   DBGrid1.Columns[4].Width:=350;
+   DBGrid1.Columns[5].Width:=95;
+   DBGrid1.Columns[6].Width:=60;
+   DBGrid1.Columns[7].Width:=60;
+   DBGrid1.Columns[8].Width:=80;
+  end
+  else begin
+   messagedlg('ATENCION!! Este IDComercio No Presenta Declación Jurada' + chr(13)
+   + '(DDJJ) para la Inscripcion seleccionada...',mtWarning,[mbok],0);
+   DDJJ.Close;
+  end;
+  DDJJ.Connection :=nil;  }
+ end;
+ if nro = 11 then begin
+ { DataSetRubros.Close;
+  DataSetRubros.Connection:=modulo2.ObjConexionComercio;
+  DataSetRubros.CommandText:='SELECT DigitoVerif FROM ComerciosContribuyentes WHERE  (IdComercio = ' + l1.Text + ')';
+  DataSetRubros.Open;
+  if not DataSetRubros.IsEmpty then begin
+   digverif.Text :=trim(DataSetRubros.Fields[0].AsString);
+   DataSetRubros.Close;
+  end;
+  DataSetRubros.Connection :=nil;  }
+ end;
+ if nro = 12 then begin
+ { RECVARIOS.Close;
+  RECVARIOS.Connection:=modulo2.ObjConexionMuni;
+  RECVARIOS.CommandText:='SELECT count(*) FROM Fn_ComerciosRecibosVarios (' + chr(19) +  COMERCIOS.Fields[0].asString + chr(19)+ ');';
+  RECVARIOS.Open;
+  if not RECVARIOS.IsEmpty then begin
+   recvario:=strtoint(RECVARIOS.Fields[0].AsString);
+   if recvario > 0 then begin
+    messagedlg('ATENCION!! este Id de Comercio posee ' + inttostr(recvario) + ' Recibos Varios..',mtWarning,[mbok],0);
+    leyend:='Este Comercio posee ' + inttostr(recvario) + ' Recibos Varios..';
+    groupbox2.Visible:=true;
+    JvDBGrid6.Align:=AlClient;
+    dataset1.Close;
+    dataset1.ConnectionString:=modulo2.ConecMuni;
+    DTSRecV.DataSet:=dataset1;
+    dataset1.CommandText:= 'SELECT * FROM Fn_ComerciosRecibosVarios (' + chr(19) +  COMERCIOS.Fields[0].asString + chr(19)+ ');';
+    dataset1.Open;
+    for t:=1 to DTSRecV.DataSet.RecordCount  do begin
+     DTSRecV.DataSet.RecNo:=t;
+     grillarecv.RowCount:=t+1;
+     grillarecv.Cells[0,t]:=trim(DTSRecV.DataSet.Fields[0].AsString);
+     grillarecv.Cells[1,t]:=trim(DTSRecV.DataSet.Fields[1].AsString);
+     grillarecv.Cells[2,t]:=trim(DTSRecV.DataSet.Fields[2].AsString);
+     grillarecv.Cells[3,t]:=trim(DTSRecV.DataSet.Fields[3].AsString);
+     grillarecv.Cells[4,t]:=trim(DTSRecV.DataSet.Fields[4].AsString);
+     grillarecv.Cells[5,t]:=trim(DTSRecV.DataSet.Fields[5].AsString);
+     grillarecv.Cells[6,t]:=trim(DTSRecV.DataSet.Fields[6].AsString);
+     grillarecv.Cells[7,t]:=trim(DTSRecV.DataSet.Fields[7].AsString);
+     grillarecv.Cells[8,t]:=trim(DTSRecV.DataSet.Fields[8].AsString);
+     grillarecv.Cells[9,t]:=trim(DTSRecV.DataSet.Fields[9].AsString);
+     grillarecv.Cells[10,t]:=trim(DTSRecV.DataSet.Fields[10].AsString);
+     grillarecv.Cells[11,t]:=trim(DTSRecV.DataSet.Fields[11].AsString);
+    end;
+    cantirv.Text:=inttostr(DTSRecV.DataSet.RecordCount);
+   end
+   else begin
+    groupbox2.Visible:=false;
+    JvDBGrid6.Align:=AlClient;
+   end;
+  end
+  else begin
+   RECVARIOS.Close;
+  end;
+  RECVARIOS.Connection :=nil;   }
+ end;
+ if nro=13 then begin
+{  MULTASTEMP.Close;
+  MULTASTEMP.Connection:=modulo2.ObjConexionComercio;
+  MULTASTEMP.CommandText:='SELECT Id,IdTh,Periodo,Fecha,Importe,CantUT,Observaciones,case when Habilitado=0 then ''NO'' else ''SI'' end as Habilitado'
+  +' FROM ComerciosMultasTemp WHERE (Idth=' + CANTCOM.Fields[0].AsString + ')';  //(Idth=' + COMERCIOS.Fields[11].AsString + ')';
+  MULTASTEMP.Open;
+  if not MULTASTEMP.IsEmpty then begin
+   for t:=1 to MULTASTEMP.recordcount do begin
+    MULTASTEMP.RecNo:=t;
+    GR1.RowCount:=t+1;
+    GR1.Cells[0,t]:=MULTASTEMP.Fields[0].AsString;
+    GR1.Cells[1,t]:=MULTASTEMP.Fields[1].AsString;
+    GR1.Cells[2,t]:=MULTASTEMP.Fields[2].AsString;
+    GR1.Cells[3,t]:=MULTASTEMP.Fields[3].AsString;
+    GR1.Cells[4,t]:=MULTASTEMP.Fields[4].AsString;
+    GR1.Cells[5,t]:=MULTASTEMP.Fields[5].AsString;
+    GR1.Cells[6,t]:=MULTASTEMP.Fields[6].AsString;
+    GR1.Cells[7,t]:=MULTASTEMP.Fields[7].AsString;
+    GR1.Cells[8,t]:='';
+   end;
+  end
+  else begin
+   MULTASTEMP.Close;
+  end;
+  MULTASTEMP.Connection :=nil;    }
+ end;
+ if nro = 14 then begin
+ { dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:=' SELECT top 1 convert(char(10),FechaHabilitacion,103) FROM ComerciosTH INNER JOIN '
+  + ' ComerciosTHDetalle ON ComerciosTHDetalle.IdTH = ComerciosTH.Id WHERE (IdComercio='+ COMERCIOS.Fields[0].AsString + ')';
+  dataset1.Open;
+  if not dataset1.IsEmpty then begin
+   edit2.Text:=dataset1.Fields[0].AsString;
+  end
+  else begin
+   dataset1.Close;
+  end;
+  dataset1.Connection :=nil;    }
+ end;
+ if nro=15 then begin
+ { ESTCUECONDO.Close;
+  ESTCUECONDO.Connection:=modulo2.ObjConexionMuni;
+  ESTCUECONDO.CommandText:='SELECT Periodo,fechavencimiento FROM EstadoCuentaComercioTasaIdCnExim (' + COMERCIOS.Fields[0].AsString
+  + ',' + chr(39) + FechaActual + chr(39) + ',5) where CONVERT(date,fechavencimiento, 103) >= ' + chr(39) + trim(fecdesde.Text) + chr(39) + ' and '
+  + 'CONVERT(date,fechavencimiento, 103) <= ' + chr(39) + trim(fechasta.Text) + chr(39);
+  ESTCUECONDO.Open;
+  if not ESTCUECONDO.IsEmpty then begin
+   for t:=1 to ESTCUECONDO.recordcount do begin
+    ESTCUECONDO.RecNo:=t;
+    GRillacondo.RowCount:=t+1;
+    GRillacondo.Cells[0,t]:=ESTCUECONDO.Fields[0].AsString;
+    GRillacondo.Cells[1,t]:=ESTCUECONDO.Fields[1].AsString;
+    GRillacondo.Cells[2,t]:=trim(CONODOPOR.Text);
+    GRillacondo.Cells[3,t]:='X';
+   end;
+   guardacondo.Enabled :=true;
+  end
+  else begin
+   GroupBox4.Enabled:=false;
+   ESTCUECONDO.Close;
+  end;
+  ESTCUECONDO.Connection :=nil;  }
+ end;
+ if nro=16 then begin
+  {idthcondo.Text :=COMERCIOS.Fields[0].AsString ;
+  if not ACTIV.IsEmpty then begin
+   ESTCUEESP.Close;
+   ESTCUEESP.Connection:=modulo2.ObjConexionMuni;
+   ESTCUEESP.CommandText:='SELECT DATENAME (MONTH,''01/''+ convert(char(2),right(periodo,2)) + ''/''+ SUBSTRING(convert(char(6),periodo),1,4)) + ''-'' + convert(char(4),anio) as mes '
+   +',idcomercio,th,impuesto,subrubro,nrocuota,anio,periodo,fechavencimiento,importecuota,interesacumulado,porcentajeaplicado,estadovto,'
+   //+'case when Subrubro <> 1111801 then 0 else case when OrigenPago = ''Acreditaciones'' then 0 else InteresAcumulado end end as interesacumulado,'
+   //+'case when Subrubro <> 1111801 then 0 else case when OrigenPago = ''Acreditaciones'' then 0 else porcentajeaplicado end end as porcentajeaplicado,'
+   +'estadopago,impuesto ,nrorecibo '
+   +'FROM EstadoCuentaComercioTasaIdCnExim  (' + COMERCIOS.Fields[0].AsString +  ',' + chr(39) + FechaActual + chr(39) + ',5)'
+   +' where estadopago=''DEUDA'' AND estadovto=''VENCIDO''';
+   ESTCUEESP.Open;
+   if not ESTCUEESP.IsEmpty then begin
+    VerUsuCondona(2);
+    for t:=0 to grilla2.ColCount-1 do
+    for y:=1 to grilla2.RowCount-1 do grilla2.Cells[t,y]:='';
+    for t:=1 to ESTCUEESP.RecordCount  do begin
+     ESTCUEESP.RecNo:=t;
+     grilla2.RowCount:=t+1;
+     grilla2.Cells[0,t]:=trim(ESTCUEESP.Fields[0].AsString);
+     grilla2.Cells[1,t]:=trim(ESTCUEESP.Fields[1].AsString);
+     grilla2.Cells[2,t]:=trim(ESTCUEESP.Fields[2].AsString);
+     grilla2.Cells[3,t]:=trim(ESTCUEESP.Fields[3].AsString);
+     grilla2.Cells[4,t]:=trim(ESTCUEESP.Fields[4].AsString);
+     grilla2.Cells[5,t]:=trim(ESTCUEESP.Fields[5].AsString);
+     grilla2.Cells[6,t]:=trim(ESTCUEESP.Fields[6].AsString);
+     grilla2.Cells[7,t]:=trim(ESTCUEESP.Fields[7].AsString);
+     grilla2.Cells[8,t]:=trim(ESTCUEESP.Fields[8].AsString);
+     grilla2.Cells[9,t]:=trim(ESTCUEESP.Fields[9].AsString);
+     grilla2.Cells[10,t]:=trim(ESTCUEESP.Fields[10].AsString);
+     grilla2.Cells[11,t]:=trim(ESTCUEESP.Fields[11].AsString);
+     grilla2.Cells[12,t]:=trim(ESTCUEESP.Fields[12].AsString);
+     grilla2.Cells[13,t]:=trim(ESTCUEESP.Fields[13].AsString);
+     grilla2.Cells[14,t]:=trim(ESTCUEESP.Fields[14].AsString);
+     grilla2.Cells[15,t]:=trim(ESTCUEESP.Fields[15].AsString);
+     grilla2.Cells[16,t]:='';
+    end;
+   end;
+  end
+  else begin
+    ACTIV.Close;
+  end;
+  ESTCUEESP.Connection :=nil;   }
+ end;
+ if nro = 17  then begin
+ { DDJJ1.Close;
+  DDJJ1.Connection:=modulo2.ObjConexionComercio;
+  DataSource3.DataSet:=DDJJ1;
+  DDJJ1.CommandText:= 'SELECT CodRenta,DetalleRubro,Alicuota,MontoDeclarado, ' + baseimp +' as montoTasa from '
+  +' Fn_ConsultaDDJJPorIdComercio (' +  l1.Text + ',(SELECT TOP 1 ComerciosIncripciones.Id FROM ComerciosIncripciones '
+  +' INNER JOIN TiposRegimenes ON TiposRegimenes.Id = ComerciosIncripciones.TipoRegimen WHERE (ComerciosIncripciones.IdComercio = ' +  l1.Text + ')'
+  + ' AND (ComerciosIncripciones.Anulado = 0) ORDER BY 1 DESC),0) where (Periodo=' + periododec + ')';
+  DDJJ1.Open;
+  if not DDJJ1.IsEmpty then begin
+   DBGrid4.Columns[0].Width:=80;
+   DBGrid4.Columns[1].Width:=250;
+   DBGrid4.Columns[3].Width:=100;
+   DBGrid4.Columns[4].Width:=100;
+  end
+  else begin
+   messagedlg('ATENCION!! Este IDComercio No Presenta Declación Jurada' + chr(13)
+   + '(DDJJ) para la Inscripcion seleccionada...',mtWarning,[mbok],0);
+   DDJJ1.Close;
+  end;
+  DDJJ1.Connection :=nil;   }
+ end;
+ if nro = 18 then begin
+  {dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:='select distinct publi.IdPublicidad as IdPublicidad,publi.Superficie as SupCartel, RubrosSub.descripcion '
+  +' from [HabilitacionesComerciales].[dbo].Solicitud  soli  inner join [HabilitacionesComerciales].[dbo].FormularioSolicitud fact '
+  +' on fact.IdFormulario = soli.IdFormulario inner join [HabilitacionesComerciales].[dbo].Publicidad publi on publi.Partida = fact.Partida '
+  +' inner join municipio.dbo.RubrosSub RubrosSub on publi.SubRubro = RubrosSub.idSubRubro '
+  +' where (soli.Th= '+ chr(39) + trim(L2.Text) + chr(39)+') and (publi.FechaBaja is null)' ;
+  dataset1.Open;
+  if not dataset1.IsEmpty then begin
+   LABEL14.Visible:=true;
+   grillaled.Visible :=true;
+   flecha.Visible :=true;
+   for t:=1 to dataset1.RecordCount do begin
+    dataset1.RecNo:=t;
+    grillaled.RowCount:=t+1;
+    grillaled.Cells[0,t]:=trim(dataset1.Fields[0].AsString);
+    grillaled.Cells[1,t]:=trim(dataset1.Fields[1].AsString);
+    grillaled.Cells[2,t]:=trim(dataset1.Fields[2].AsString);
+   end;
+  end
+  else begin
+   LABEL14.Visible:=false;
+   grillaled.Visible :=false;
+   flecha.Visible :=false;
+  end;
+  dataset1.Connection :=nil;  }
+ end;
+ if nro = 19 then begin
+ { dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:=' SELECT codbar41,codbar42,codbar43,codbarf FROM [municipio].[dbo].[tasaanualLiquidacion] WHERE (idregistro='+ maximo + ')';
+  dataset1.Open;
+  if not dataset1.IsEmpty then begin
+   nroliq:=dataset1.Fields[2].AsString;
+   nrocobro:= dataset1.Fields[0].AsString + ' - ' + dataset1.Fields[1].AsString;
+   elcodbarf:=dataset1.Fields[3].AsString;
+  end
+  else begin
+   dataset1.Close;
+  end;
+  dataset1.Connection :=nil;  }
+ end;
+ if nro = 20 then begin
+ { dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:= 'SELECT id,TittularTH,cuit,IdContribuyente '
+  +' FROM PlanesPagos.dbo.THExcluirDeMoratoria where (Activo = 1) AND (cuit = ' + L9.Text + ')';
+  dataset1.Open;
+  IF NOT dataset1.IsEmpty THEN BEGIN
+   messagedlg('ATENCION!! Sr Contribuyente: ' + L6.Text + ' usted posee un Requerimiento de Información de la ' + chr(13)
+   +'Agencia de Recaudacion Municipal pendiente de Cumplimiento cursado a su domicilio fiscal electronico',mtWarning,[mbok],0);
+  END;
+  dataset1.Connection :=nil;  }
+ end;
+ if nro = 21 then begin
+ { perimulta:='0';
+  dataset1.Close;
+  dataset1.Connection:=modulo2.ObjConexionComercio;
+  dataset1.CommandText:= 'SELECT Id,(Monto-Interes) as BaseImponible FROM ComerciosDeudas '
+  +' WHERE (Periodo='+elperiodo1+') AND (IdTH=' + laidth +') AND (FechaBaja IS NULL)';
+  //+' WHERE (Periodo='+elperiodo1+') AND (IdTH='+trim(thid.Text)+') AND (FechaBaja IS NULL)';
+  dataset1.Open;
+  IF dataset1.IsEmpty THEN BEGIN
+   perimulta:='1';
+  END;
+  dataset1.Connection :=nil;    }
+ end;
+ IF nro = 22 then begin
+ { MULTIPLEPAGO.Close;
+  MULTIPLEPAGO.Connection:=modulo2.ObjConexionComercio;
+  DataSource4.DataSet:=MULTIPLEPAGO;
+  MULTIPLEPAGO.CommandText:='SELECT idth,idsubrubro,nrocuota,anio,Periodos,Origen,estado,fechacob,nro,importe,puntov   '
+  + ' FROM [municipio].[dbo].[ComercioTasaPagadasTodoIdNewPagosMultiples] (' + trim(l1.Text) + ') WHERE  Duplicado = 1  order by 5,8';
+  MULTIPLEPAGO.Open;
+  if MULTIPLEPAGO.IsEmpty then begin
+   //messagedlg('ATENCION!! Este IDComercio No Presenta Datos del Comercio',mtWarning,[mbok],0);
+   MULTIPLEPAGO.Close;
+  end
+  else begin
+     //ACTIV.Close;
+  end;
+  MULTIPLEPAGO.Connection :=nil;   }
+ end;
+end;
+
+procedure TAsignacion_Clave.SALEClick(Sender: TObject);
+begin
+Close;
+end;
+
+procedure TAsignacion_Clave.R1Click(Sender: TObject);
+begin
+ LB1.Visible:=true;
+ ONOMB.Visible:=false;
+ ODNI.Visible:=true;
+ if R1.Checked then begin
+  LB1.Caption:='Ingrese el N° Comercio';
+  ODNI.Text:='000000';
+  ODNI.MaxLength:=6;
+  ODNI.SetFocus;
+ end;
+ if R3.Checked then begin
+  LB1.Caption:='Ingrese Nº Documento';
+  ODNI.Text:='00000000';
+  ODNI.MaxLength:=8;
+  ODNI.SetFocus;
+ end;
+end;
+
+procedure TAsignacion_Clave.R2Click(Sender: TObject);
+begin
+LB1.Visible:=true;
+LB1.Caption:='Ingrese el TH Habilitado:';
+ONOMB.Visible:=true;
+ONOMB.MaxLength:=15;
+ODNI.Visible:=false;
+ONOMB.SetFocus;
+end;
+
+procedure TAsignacion_Clave.ODNIKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key =#13 then begin
+  borra.Click;
+  BUSCAR.SetFocus;
+ end
+ else begin
+  if ( StrScan('0123456789',Key) <> nil ) or ( Key = Char(VK_BACK) ) then
+  else Key := #0;
+ end;
+end;
+
+procedure TAsignacion_Clave.BuscarClick(Sender: TObject);
+ begin
+ Coloca1(0);
+ Coloca1(1);
+ ConPlan:=false;
+end;
+
+procedure TAsignacion_Clave.JvDBGrid1CellClick(Column: TColumn);
+var t,y:integer;
+begin
+  if not COMERCIOS.IsEmpty then begin
+   if COMERCIOS.Fields[9].AsBoolean then begin
+    elcuim:=COMERCIOS.Fields[5].AsString;
+    fantasia:=COMERCIOS.Fields[4].AsString;
+    Coloca1(2);
+    Coloca1(3);
+    //Coloca1(6);     // datos inscripcion
+    //Coloca1(4);     // estado de deuda
+    //Coloca1(13);    // peridos multas
+    //Coloca1(14);    // fecha inicio de habilitacion
+    //Coloca1(16);   // para la liquidacion esp. de trasnferencias
+    //Coloca1(11);   // para el digito verificador
+    //Coloca1(20);   // para ver si el contribuyente esta bloqueado o no
+    //dts2.DataSet.Close;
+    //dts3.DataSet.Close;
+    //dts4.DataSet.Close;
+   end
+   else begin
+    messagedlg('Error!! Solo es posible proseguir si ha seleccionado un Contribuyente'
+    + chr(13) + 'sin un CUIT Válido... Utilice el menú contextual para asignarlo',mterror,[mbok],0);
+    idcontrib:=COMERCIOS.Fields[12].AsString;
+   end;
+  end
+  else messagedlg('Error!! Solo es posible proseguir si ha seleccionado un Contribuyente'
+  + chr(13) + 'de caracter RESPONSABLE... Utilice el menú contextual para asignarlo',mterror,[mbok],0);
+ //end;
+end;
+
+procedure TAsignacion_Clave.EliminarActividad1Click(Sender: TObject);
+begin
+ coloca1(2);
+end;
+
+procedure TAsignacion_Clave.BORRAClick(Sender: TObject);
+var t,y:integer;
+begin
+  COMERCIOS.Close;
+  DOMIC.Close;
+  ACTIV.Close;
+  ALICUO.Close;
+  CANTCOM.Close;
+  ESTCUE.Close;
+  ddjj.Close;
+  ddjjdet.close;
+  MULTASTEMP.Close;
+  laduedaselec:=0;
+end;
+
+procedure TAsignacion_Clave.ONOMBKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key = #13 then begin
+  Key := #0;
+  borra.Click;
+  Buscar.SetFocus;
+ end;
+end;
+
+procedure TAsignacion_Clave.R4Click(Sender: TObject);
+begin
+ if r4.Checked then begin
+  ONOMB.Visible:=false;
+  ODNI.Visible:=true;
+  LB1.Caption:='Ingrese Nº CUIT';
+  ODNI.Text:='00000000000';
+  ODNI.MaxLength:=11;
+  ODNI.SetFocus;
+ end;
+end;
+
+procedure TAsignacion_Clave.DBGrid1DrawColumnCell(Sender: TObject;
+  const Rect: TRect; DataCol: Integer; Column: TColumn;
+  State: TGridDrawState);
+begin
+   if trim(CANTCOM.Fields[2].AsString) <> '' then begin
+   DBGrid1.Canvas.Brush.Color:=clYellow;
+   DBGrid1.Canvas.FillRect(Rect);
+   DBGrid1.Canvas.Font.Color:= clBlack;
+  end
+  else begin
+   DBGrid1.Canvas.Brush.Color:=clWindow;
+   DBGrid1.Canvas.FillRect(Rect);
+   DBGrid1.Canvas.Font.Color:= clBlack;
+  end;
+  DBGrid1.DefaultDrawColumnCell(Rect,Datacol,Column,State);
+end;
+
+
+end.

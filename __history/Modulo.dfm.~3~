@@ -1,0 +1,6 @@
+object Modulo2: TModulo2
+  OldCreateOrder = False
+  OnCreate = DataModuleCreate
+  Height = 169
+  Width = 188
+end

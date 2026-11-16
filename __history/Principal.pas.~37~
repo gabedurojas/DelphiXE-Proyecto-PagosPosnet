@@ -1,0 +1,151 @@
+unit Principal;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ComCtrls, jpeg, ExtCtrls, Menus, Buttons, ImgList;
+                                                                                  
+type
+  TPrincipal_Menu = class(TForm)
+    Image1: TImage;
+    SBarra1: TStatusBar;
+    BitBtn1: TBitBtn;
+    Label2: TLabel;
+    ImageList1: TImageList;
+    MainMenu1: TMainMenu;
+    CONSULTASDEUDAS1: TMenuItem;
+    INMOBILIARIOTASAUNICA1: TMenuItem;
+    CargarPagosdesdeExcel1: TMenuItem;
+    ModificarVtoLiquidaciones1: TMenuItem;
+    N1: TMenuItem;
+    procedure FormActivate(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure Image1Click(Sender: TObject);
+    function GetAppVersion: string;
+    procedure INMOBILIARIOTASAUNICA1Click(Sender: TObject);
+    procedure CargarPagosdesdeExcel1Click(Sender: TObject);
+ //   procedure ImpresindeCertificados1Click(Sender: TObject);
+  private
+    qwe:boolean;
+    usuarea:string;{ Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Principal_Menu: TPrincipal_Menu;
+
+implementation
+
+uses Modulo, Acceso1,Unidad,PagosPosnet,CargarPagosExcel;
+
+{$R *.dfm}
+
+procedure TPrincipal_Menu.CargarPagosdesdeExcel1Click(Sender: TObject);
+var  LosPagosExcel: TLosPagosExcel;
+begin
+ try
+  LosPagosExcel:=TLosPagosExcel.Create(Nil);
+  LosPagosExcel.ShowModal;
+ finally
+  FreeAndNil(LosPagosExcel);
+ end;
+end;
+
+procedure TPrincipal_Menu.FormActivate(Sender: TObject);
+var Acceso: TAcceso;
+begin
+ if FileExists(modulo2.path_todo + '\Imagenes\SinImagen.jpg') then
+  Image1.Picture.LoadFromFile(modulo2.path_todo + '\Imagenes\SinImagen.jpg');
+ if not(qwe) then begin
+  Acceso:= TAcceso.create(self);
+   try begin
+    Acceso.ShowModal;
+    if Acceso.control = false then close
+    else begin
+     //AuditAccesos('INGRESO COMTASA ','I','117');
+     SBarra1.Panels[0].Text:='Nº de Usuario: ' + modulo2.UsuNro;
+     SBarra1.Panels[1].Text:='Usuario: ' + modulo2.UsuNombre;
+     SBarra1.Panels[2].Text:='Servidor: Municipio'; //'Punto Venta:  ' + modulo2.PuntoV;
+     //SBarra1.Panels[3].Text:='Servidor: ' + modulo2.Server + '/Multiples DB';
+     label2.Caption:='Version - ' + GetAppVersion;
+    end;
+   end;
+   finally
+    qwe:=true;
+    Acceso.Free;
+   end;
+ end;
+end;
+
+function TPrincipal_Menu.GetAppVersion: string;
+var
+    Size, Size2: DWord;
+    Pt, Pt2: Pointer;
+begin
+  Size := GetFileVersionInfoSize(PChar(ParamStr(0)), Size2);
+  if Size > 0 then
+  begin
+   GetMem(Pt, Size);
+   try
+    GetFileVersionInfo(PChar(ParamStr(0)), 0, Size, Pt);
+    VerQueryValue(Pt, '\', Pt2, Size2);
+    with TVSFixedFileInfo(Pt2^) do
+    begin
+      Result := '' +
+      IntToStr(HiWord(dwFileVersionMS)) + IntToStr(LoWord(dwFileVersionMS))
+      + IntToStr(HiWord(dwFileVersionLS)) + IntToStr(LoWord(dwFileVersionLS));
+      //IntToStr(HiWord(dwFileVersionMS)) + '.' +
+      //IntToStr(LoWord(dwFileVersionMS)) + '.' +
+      //IntToStr(HiWord(dwFileVersionLS));
+      //+ ' Build ' + IntToStr(LoWord(dwFileVersionLS));
+    end;
+   finally
+    FreeMem(Pt);
+   end;
+  end;
+end;
+
+procedure TPrincipal_Menu.FormCreate(Sender: TObject);
+begin
+qwe:=false;
+end;
+
+procedure TPrincipal_Menu.BitBtn1Click(Sender: TObject);
+begin
+close;
+end;
+
+procedure TPrincipal_Menu.Image1Click(Sender: TObject);
+var Acceso: TAcceso;
+begin                                               //Acceso:= TAcceso.create(self);
+ try begin
+  Acceso.ShowModal;
+  if Acceso.control = false then close
+  else begin
+   SBarra1.Panels[0].Text:='Nº de Usuario:  ' + modulo2.UsuNro;
+   SBarra1.Panels[1].Text:='Usuario Activo:  ' + modulo2.UsuNombre;
+   SBarra1.Panels[2].Text:='Punto Venta:  ' + modulo2.UsuPuntoV;
+   SBarra1.Panels[3].Text:='Servidor: ' + modulo2.Server ;
+  end;
+ end;
+ finally
+  Acceso.Free;
+ end;
+end;
+
+procedure TPrincipal_Menu.INMOBILIARIOTASAUNICA1Click(Sender: TObject);
+var  LosPagosPosnet: TLosPagosPosnet;
+begin
+ try
+  LosPagosPosnet:=TLosPagosPosnet.Create(Nil);
+  LosPagosPosnet.ShowModal;
+ finally
+  FreeAndNil(LosPagosPosnet);
+ end;
+end;
+
+end.
+

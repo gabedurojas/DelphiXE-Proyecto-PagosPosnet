@@ -1,0 +1,269 @@
+unit Busc_Liquidaciones;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, ExtCtrls, Grids, DBGrids, StdCtrls, ComCtrls, Mask, StrUtils,
+  DB, ADODB, Buttons, Vcl.DBCtrls;
+
+type
+  TBuscar_Liquidaciones = class(TForm)
+    StatusBar1: TStatusBar;
+    GroupBox1: TGroupBox;
+    GroupBox2: TGroupBox;
+    R2: TRadioButton;
+    Bevel1: TBevel;
+    DBGrid1: TDBGrid;
+    GroupBox4: TGroupBox;
+    LB1: TLabel;
+    ONOMB: TEdit;
+    DataSource1: TDataSource;
+    DATOS: TADODataSet;
+    Label1: TLabel;
+    L1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    L2: TLabel;
+    L3: TLabel;
+    L4: TLabel;
+    L9: TLabel;
+    Label5: TLabel;
+    L5: TLabel;
+    Label6: TLabel;
+    L7: TLabel;
+    SALIR: TBitBtn;
+    Buscar: TBitBtn;
+    Label8: TLabel;
+    R1: TRadioButton;
+    Label4: TLabel;
+    L8: TLabel;
+    DBNavigator1: TDBNavigator;
+    Label7: TLabel;
+    GroupBox3: TGroupBox;
+    Label9: TLabel;
+    verfecha: TBitBtn;
+    fecha: TMaskEdit;
+    procedure Coloca1(nro:byte);
+    procedure Limpiar(nro:byte);
+    procedure R2Click(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure Buscar1Click(Sender: TObject);
+    procedure BuscarClick(Sender: TObject);
+    procedure ONOMBKeyPress(Sender: TObject; var Key: Char);
+    procedure ODNIKeyPress(Sender: TObject; var Key: Char);
+    procedure FormCreate(Sender: TObject);
+    procedure DataSource1DataChange(Sender: TObject; Field: TField);
+    procedure SALIRClick(Sender: TObject);
+    procedure R1Click(Sender: TObject);
+    procedure fechaKeyPress(Sender: TObject; var Key: Char);
+    procedure fechaExit(Sender: TObject);
+    procedure verfechaClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    NroOpcion:integer;
+    eltpo:integer;
+    muni,gh:boolean;
+
+    { Public declarations }
+  end;
+
+var
+  Buscar_Liquidaciones: TBuscar_Liquidaciones;
+
+implementation
+
+uses modulo, Unidad;
+
+{$R *.dfm}
+
+procedure TBuscar_Liquidaciones.FormCreate(Sender: TObject);
+begin
+gh:=false;
+end;
+
+procedure TBuscar_Liquidaciones.FormActivate(Sender: TObject);
+begin
+ if not(gh) then begin
+  gh:=true;
+  muni:=false;
+  fecha.Text:=strcut(fec_system(),10);
+  DATOS:=TADODataSet.Create(nil);
+  DATOS.ConnectionString:=modulo2.ConecMuni;
+  ONOMB.SetFocus;
+ end;
+end;
+
+procedure TBuscar_Liquidaciones.Coloca1(nro:byte);
+var t:integer;
+    Txt:widestring;
+begin
+ if nro=1 then begin
+  if nroopcion=1 then begin
+    DATOS.Close;
+    datasource1.DataSet:=DATOS;
+    Txt:='SELECT idregistro, codbar43 as NroLiquidacion,cuim,respopag, partida, supinm,nro_doc,nomraz, '
+    +'monto1v, primerv, puntov,idrubro, codigoobjeto, nrocuota,SubRubro FROM tasaanualLiquidacion ';
+    if R1.Checked = true then Txt:=Txt + ' where nomraz like ' + chr(39) +  trim(ONOMB.Text) + '%' + chr(39)+ ' ORDER BY primerv;'; // por apellido
+    if R2.Checked = true then Txt:=Txt + ' where monto1v like ' + chr(39) +  trim(ONOMB.Text) + '%' + chr(39)+ ' ORDER BY 1;'; // por apellido
+    DATOS.CommandText:=Txt;
+    DATOS.Open;
+    if DATOS.RecordCount <> 0 then begin
+      DBGrid1.Columns[0].Width:=70;
+      DBGrid1.Columns[1].Width:=90;
+      DBGrid1.Columns[2].Width:=70;
+      DBGrid1.Columns[3].Width:=80;
+      StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: ' + inttostr(DATOS.RecordCount);
+    end
+    else begin
+      messagedlg('Error!! Este Comercio no Existe en la Base de Datos.',mterror,[mbok],0);
+      StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: 0';
+    end;
+  end;
+ end;
+ if nro=2 then begin
+  if nroopcion=1 then begin
+    DATOS.Close;
+    datasource1.DataSet:=DATOS;
+    Txt:='SELECT idregistro, codbar43 as NroLiquidacion,cuim,respopag, partida, supinm,nro_doc,nomraz, '
+    +'monto1v, primerv, puntov,idrubro, codigoobjeto, nrocuota,SubRubro FROM tasaanualLiquidacion ';
+    if R1.Checked = true then Txt:=Txt + ' where nomraz like ' + chr(39) +  trim(ONOMB.Text) + '%' + chr(39)
+                                       + ' and (primerv= '+ chr(39) +  trim(fecha.Text) + chr(39) + ') ORDER BY primerv;'; // por apellido
+    if R2.Checked = true then Txt:=Txt + ' where monto1v like ' + chr(39) +  trim(ONOMB.Text) + '%' + chr(39)
+                                       + ' and (primerv= '+ chr(39) +  trim(fecha.Text) + chr(39) + ') ORDER BY 1;'; // por apellido
+    DATOS.CommandText:=Txt;
+    DATOS.Open;
+    if DATOS.RecordCount <> 0 then begin
+      DBGrid1.Columns[0].Width:=70;
+      DBGrid1.Columns[1].Width:=90;
+      DBGrid1.Columns[2].Width:=70;
+      DBGrid1.Columns[3].Width:=80;
+      StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: ' + inttostr(DATOS.RecordCount);
+    end
+    else begin
+      messagedlg('Error!! Este Comercio no Existe en la Base de Datos.',mterror,[mbok],0);
+      StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: 0';
+    end;
+  end;
+ end;
+end;
+
+procedure TBuscar_Liquidaciones.Limpiar(nro:byte);
+begin
+ L1.Caption:='...';L2.Caption:='...';
+ L3.Caption:='...';L4.Caption:='...';
+ L5.Caption:='...';L7.Caption:='...';
+ L8.Caption:='...';L9.Caption:='...';
+ DATOS.Close;
+ muni:=false;
+ if nro = 1 then begin
+  R2.Checked:=true;
+  ONOMB.Clear;
+  ONOMB.SetFocus;
+ end;
+end;
+
+procedure TBuscar_Liquidaciones.fechaExit(Sender: TObject);
+var fec:Tdatetime;
+begin
+  try
+   fec:=strtodate(trim(fecha.Text));
+  except
+   messagedlg('La fecha es Erronea!!',mterror,[mbok],0);
+   fecha.SetFocus;
+  end;
+end;
+
+procedure TBuscar_Liquidaciones.fechaKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+ if key = #13 then begin
+  Key := #0;
+  verfecha.SetFocus;
+ end;
+end;
+
+procedure TBuscar_Liquidaciones.R1Click(Sender: TObject);
+begin
+StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: 0';
+LB1.Caption:='Ingrese Contribuyente:';
+ONOMB.Visible:=true;
+Buscar.Enabled:=true;
+ONOMb.Clear;
+ONOMB.SetFocus;
+end;
+
+procedure TBuscar_Liquidaciones.R2Click(Sender: TObject);
+begin
+StatusBar1.Panels[1].Text:= 'Total de Liquidaciones: 0';
+LB1.Caption:='Ingrese Importe:';
+ONOMB.Visible:=true;
+Buscar.Enabled:=true;
+ONOMb.Clear;
+ONOMB.SetFocus;
+end;
+
+procedure TBuscar_Liquidaciones.Buscar1Click(Sender: TObject);
+begin
+Coloca1(4);
+end;
+
+procedure TBuscar_Liquidaciones.BuscarClick(Sender: TObject);
+begin
+Limpiar(0);
+Coloca1(1);
+end;
+
+procedure TBuscar_Liquidaciones.ONOMBKeyPress(Sender: TObject; var Key: Char);
+begin
+if key = chr(13) then Buscar.SetFocus;
+end;
+
+procedure TBuscar_Liquidaciones.ODNIKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key =#13 then begin
+  Buscar.SetFocus;
+ end
+ else begin
+  if R2.Checked then begin
+    if ( StrScan('0123456789.',Key) <> nil ) or ( Key = Char(VK_BACK) ) then
+    else Key := #0;
+  end
+  else begin
+    //
+  end;
+ end;
+end;
+
+procedure TBuscar_Liquidaciones.DataSource1DataChange(Sender: TObject;
+  Field: TField);
+begin
+if trim(DBGrid1.Fields[0].AsString) <> '' then begin
+  //idregistro, codbar43 as NroLiquidacion,cuim,respopag, partida, supinm,'
+  //    +' nro_doc,nomraz, monto1v, primerv, puntov,idrubro, codigoobjeto, nrocuota,SubRubro
+  L1.Caption:=trim(DBGrid1.Fields[0].AsString);  // id
+  L2.Caption:=trim(DBGrid1.Fields[4].AsString);  // partida
+  L3.Caption:=trim(DBGrid1.Fields[7].AsString);  // contrib
+  L4.Caption:=trim(DBGrid1.Fields[12].AsString);  // cod objeto
+  L5.Caption:=trim(DBGrid1.Fields[6].AsString);  // dni
+  L7.Caption:=trim(DBGrid1.Fields[8].AsString);  // importe
+  L8.Caption:=trim(DBGrid1.Fields[1].AsString);  // codbar43
+  L9.Caption:=trim(DBGrid1.Fields[9].AsString);
+  muni:=true;
+  SALIR.SetFocus;
+end;
+end;
+
+procedure TBuscar_Liquidaciones.SALIRClick(Sender: TObject);
+begin
+close;
+end;
+
+procedure TBuscar_Liquidaciones.verfechaClick(Sender: TObject);
+begin
+ Limpiar(0);
+ Coloca1(2);
+end;
+
+end.

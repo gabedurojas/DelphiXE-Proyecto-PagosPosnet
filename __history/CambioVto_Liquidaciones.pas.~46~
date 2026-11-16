@@ -1,0 +1,343 @@
+unit CambioVto_Liquidaciones;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, DB, ADODB, Grids, DBGrids, StdCtrls, Mask, ComCtrls, ExtCtrls,
+  Buttons,   DBCtrls, StrUtils, JvExButtons,
+  JvBitBtn, JvgGroupBox, Vcl.ToolWin, JvExComCtrls, JvToolBar, JvComponentBase,
+  JvEmbeddedForms, Vcl.Menus, RzTreeVw, Objetos, Vcl.ImgList, frxClass, frxDBSet,
+  DBClient, MidasLib, frxBarcode;
+
+type
+  TCambioVToLiqui = class(TForm)
+    Barra1: TStatusBar;
+    DataSource1: TDataSource;
+    DataSource2: TDataSource;
+    PageControl2: TPageControl;
+    TabSheet3: TTabSheet;
+    Image1: TImage;
+    FormularioEmb: TJvEmbeddedFormLink;
+    JvToolBar1: TJvToolBar;
+    ToolButton1: TToolButton;
+    SALE: TJvBitBtn;
+    Label12: TLabel;
+    JvgGroupBox1: TJvgGroupBox;
+    Label52: TLabel;
+    nrodeplan: TEdit;
+    JvBitBtn1: TJvBitBtn;
+    JvgGroupBox8: TJvgGroupBox;
+    DBGrid2: TDBGrid;
+    PopupMenu1: TPopupMenu;
+    ImprimirEstadodeCuenta1: TMenuItem;
+    ImprimirLiquidacindeCtaSeleccionada1: TMenuItem;
+    ImageList1: TImageList;
+    Liquidacin1: TMenuItem;
+    ImprimirCuotaconfechade2doVencimiento1: TMenuItem;
+    ImageList2: TImageList;
+    Reimpresin1: TMenuItem;
+    ReimpresindePlanillaDDJJ1: TMenuItem;
+    Reimpresin2: TMenuItem;
+    ReasignarCuotasPagadas1: TMenuItem;
+    GrupoAdmin: TGroupBox;
+    INSERTAR: TBitBtn;
+    Label1: TLabel;
+    Ld: TDateTimePicker;
+    procedure FormCreate(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure Coloca1(nro:byte);
+    procedure DBGrid2CellClick(Column: TColumn);
+    procedure VEC2KeyPress(Sender: TObject; var Key: Char);
+    procedure JvBitBtn1Click(Sender: TObject);
+    procedure SALEClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure LdKeyPress(Sender: TObject; var Key: Char);
+    procedure nrodeplanExit(Sender: TObject);
+    procedure nrodeplanKeyPress(Sender: TObject; var Key: Char);
+    procedure INSERTARClick(Sender: TObject);
+  private
+    FechaAct,Fec2doVenc,EstadoAct,ElNumPlan,dato,elnroplan,laobserv,detcuotas,dato1,elplanfecha,
+    intereDtopagototal,primercta:string;
+    gh,titrespo:boolean;
+    CantCuotas:integer;
+    tot1,tot2, deudatot,impanticipo,impprimercta:real;
+    cont:widestring;
+    PLANES, DataSet2:TADODataSet;
+    DtsGrilla2:TClientDataSet;{ Private declarations }
+  public
+    Recibo:TRecibo;
+    Objetos:TObjetos;{ Public declarations }
+  end;
+
+var
+  CambioVToLiqui: TCambioVToLiqui;
+
+implementation
+
+uses modulo, Unidad;
+
+{$R *.dfm}
+procedure TCambioVToLiqui.FormCreate(Sender: TObject);
+var
+  Btn: TButton;
+  R: TRect;
+begin
+  gh:=false;
+  //DataSet11:=TADODataSet.Create(nil);
+  DataSet2:=TADODataSet.Create(nil);
+  //DataSetRec:=TADODataSet.Create(nil);
+  PLANES:=TADODataSet.Create(nil);
+  //ESTCUENTA:=TADODataSet.Create(nil);
+  //ESTCUENTASININT:=TADODataSet.Create(nil);
+  //OBSERV:=TADODataSet.Create(nil);
+  Recibo:=TRecibo.Create;
+  Objetos:=TObjetos.Create;
+end;
+
+procedure TCambioVToLiqui.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  FreeAndNil(PLANES);
+  //FreeAndNil(ESTCUENTA);
+  //FreeAndNil(ESTCUENTASININT);
+  //FreeAndNil(OBSERV);
+  FreeAndNil(Recibo);
+  //FreeAndNil(DataSet11);
+  FreeAndNil(DataSet2);
+  //FreeAndnil(DataSetRec);
+  FreeAndNil(Self);
+end;
+
+procedure TCambioVToLiqui.FormActivate(Sender: TObject);
+begin
+ if not(gh) then begin
+   gh:=true;
+   ld.Date:= now;
+   PageControl2.ActivePage:=PageControl2.Pages[0];
+   FechaAct:=LeftStr(Fec_System(),10);
+   nrodeplan.SetFocus;
+   insertar.Enabled :=false;
+ end;
+end;
+
+procedure TCambioVToLiqui.Coloca1(nro:byte);
+var param,dmi,tmp:string;
+    Comando:widestring;
+    DataSet1, DataSet2:TADODataSet;
+    Nivel1, Nivel2, Nivel3, Nivel4, Nivel5, Nivel6:TTreeNode;
+    t,y,b:integer;
+    Cnx2:TADOConnection;
+begin
+Cnx2:=TADOConnection.Create(nil);
+if nro = 1 then begin
+ try
+  PLANES.Close;
+  Cnx2.ConnectionString:=Modulo2.ConectDbMuni;
+  Cnx2.LoginPrompt:=false;
+  DataSource2.DataSet:=PLANES;
+  PLANES.Connection:=Cnx2;
+  PLANES.CommandText:='SELECT idregistro,cuim,partida,nro_doc,nomraz ,monto1v'
+  +',primerv,monto2v,segundv,codbar43,codbarf,puntov,fechahora,idrubro,codigoobjeto'
+  +',SubRubro from tasaanualliquidadion where (codbar43 = ' + trim(nrodeplan.Text) + ')';
+  PLANES.Open;
+  if not PLANES.IsEmpty then begin
+   Barra1.Panels[1].Text:='Cant. Registros: ' + IntToStr(PLANES.RecordCount);
+  end
+  else begin
+   messagedlg('Atencion no existen resultados de la busqueda, por favor ingrese otro valor',mtWarning,[mbok],0);
+   nrodeplan.SetFocus;
+  end;
+  PLANES.Connection:=nil;
+ except
+  on E: Exception do begin
+    EnviarLog(Self.Caption, E.Message);
+    EnviarLog(Self.Caption, comando);
+  end;
+ end;
+end;
+if nro = 3 then begin
+ {try
+  Cnx2.ConnectionString:=Modulo2.ConectDbMuni;
+  Cnx2.LoginPrompt:=false;
+  ESTCUENTA.Close;
+  DataSource1.DataSet:=ESTCUENTA;
+  ESTCUENTA.Connection:=Cnx2;
+  if CheckBox1.Checked then begin
+   ESTCUENTA.CommandText:='SELECT NroPlan, case when NroCuota = 0 then ''Anticipo'' else convert(nvarchar(10),NroCuota) end as NroCuota,'
+   + 'FechaVencimiento,ImporteCuota, 0 as Punitorios,ImporteCuota as TotalCuota,Estado,Origen,NroRecibo,Importe,FechaPago,TipoEstado,PuntoV,Idrubro,'
+   + 'detallerubro FROM dbo.EstadoCuentaPlanPago (' + chr(39) + FechaAct + chr(39) + ' , ' + ElNumPlan + ') where (estado <> ''ERROR'')';
+  end
+  else begin
+   ESTCUENTA.CommandText:='SELECT NroPlan, case when NroCuota = 0 then ''Anticipo'' else convert(nvarchar(10),NroCuota) end as NroCuota,'
+   + 'FechaVencimiento,ImporteCuota,Punitorios,TotalCuota,Estado,Origen,NroRecibo,Importe,FechaPago,TipoEstado,PuntoV,Idrubro,'
+   + 'detallerubro FROM dbo.EstadoCuentaPlanPago (' + chr(39) + FechaAct + chr(39) + ' , ' + ElNumPlan + ') where (estado <> ''ERROR'')';
+  end;
+  ESTCUENTA.Open;
+      //cargo la grilla de las cuotas de los planes CON anticipos
+  ESTCUENTA.Connection:=nil;
+  except
+   on E: Exception do begin
+     EnviarLog(Self.Caption, E.Message);
+     EnviarLog(Self.Caption, comando);
+   end;
+ end;
+ tot1:=0;
+ tot2:=0;
+ try
+  DataSource1.dataset.disablecontrols;
+  DataSource1.dataset.first;
+  while not DataSource1.dataset.eof do begin
+   if (trim(DataSource1.DataSet.Fields[6].Value)='DEUDA') then begin
+    tot2 := tot2 + DBGrid3.datasource.dataset.fieldbyname('TotalCuota').asfloat;
+   end;
+   DataSource1.dataset.next;
+  end;
+ finally
+  DataSource1.dataset.enablecontrols;
+ end;
+
+ for t:=1 to ESTCUENTA.RecordCount do begin
+  ESTCUENTA.RecNo:=t;
+  tot1:=tot1 + ESTCUENTA.FieldByName('ImporteCuota').AsFloat;
+ end;  }
+end;
+if nro = 4 then begin
+ {try
+  Cnx2.ConnectionString:=Modulo2.ConectDbMuni;
+  Cnx2.LoginPrompt:=false;
+  ESTCUENTASININT.Close;
+  DataSource1.DataSet:=ESTCUENTASININT;
+  ESTCUENTASININT.Connection:=Cnx2;
+  if CheckBox1.Checked then begin
+   ESTCUENTASININT.CommandText:='SELECT NroPlan,NroCuota,FechaVencimiento,ImporteCuota, 0 as Punitorios,'
+   + 'ImporteCuota as TotalCuota,Estado,Origen,NroRecibo,Importe,FechaPago,TipoEstado,PuntoV,Idrubro,'
+   + 'detallerubro FROM dbo.EstadoCuentaPlanPago (' + chr(39) + FechaAct + chr(39) + ' , ' + ElNumPlan + ') where (estado <> ''ERROR'')';
+  end
+  else begin
+   ESTCUENTASININT.CommandText:='SELECT NroPlan,NroCuota,FechaVencimiento,ImporteCuota,Punitorios,'
+   + 'TotalCuota,Estado,Origen,NroRecibo,Importe,FechaPago,TipoEstado,PuntoV,Idrubro,'
+   + 'detallerubro FROM dbo.EstadoCuentaPlanPago (' + chr(39) + FechaAct + chr(39) + ' , ' + ElNumPlan + ')';// where (estado <> ''ERROR'')';
+  end;
+  ESTCUENTASININT.Open;
+  ESTCUENTASININT.Connection:=nil;
+ except
+  on E: Exception do begin
+    EnviarLog(Self.Caption, E.Message);
+    EnviarLog(Self.Caption, comando);
+  end;
+ end;
+ tot1:=0;
+ tot2:=0;
+ try
+  DataSource1.dataset.disablecontrols;
+  DataSource1.dataset.first;
+  while not DataSource1.dataset.eof do begin
+   if (trim(DataSource1.DataSet.Fields[6].Value)='DEUDA') then begin
+    tot2 := tot2 + DBGrid3.datasource.dataset.fieldbyname('TotalCuota').asfloat;
+   end;
+   DataSource1.dataset.next;
+  end;
+ finally
+  DataSource1.dataset.enablecontrols;
+ end;
+
+ for t:=1 to ESTCUENTASININT.RecordCount do begin
+  ESTCUENTASININT.RecNo:=t;
+  tot1:=tot1 + ESTCUENTASININT.FieldByName('ImporteCuota').AsFloat;
+ end;   }
+end;
+Cnx2.Close;
+FreeAndNil(Cnx2);
+end;
+
+procedure TCambioVToLiqui.DBGrid2CellClick(Column: TColumn);
+begin
+ if not PLANES.IsEmpty  then begin
+   dato:=PLANES.Fields[0].AsString;
+   insertar.Enabled :=true;
+   ld.SetFocus;
+ end
+ else dato:='0';
+end;
+
+procedure TCambioVToLiqui.VEC2KeyPress(Sender: TObject; var Key: Char);
+begin
+if key = chr(13) then Imprime.SetFocus;
+end;
+
+procedure TCambioVToLiqui.JvBitBtn1Click(Sender: TObject);
+begin
+ if (trim(nrodeplan.Text) = '') then begin
+  messagedlg('ATENCION!! No Existe un Nro de Liquidacion ingresado.',mtwarning,[mbok],0);
+  nrodeplan.SetFocus;
+ end
+ else Coloca1(1);
+end;
+
+procedure TCambioVToLiqui.LdKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key = #13 then begin
+  Key := #0;
+  INSERTAR.SetFocus;
+ end;
+end;
+
+procedure TCambioVToLiqui.nrodeplanExit(Sender: TObject);
+begin
+ if (trim(nrodeplan.Text) = '0') then begin
+  messagedlg('Error!! No Existe un Nro de Liquidacion ingresado.',mterror,[mbok],0);
+  nrodeplan.SetFocus;
+ end;
+end;
+
+procedure TCambioVToLiqui.nrodeplanKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key = #13 then begin
+  Key := #0;
+  JvBitBtn1.SetFocus;
+ end
+ else begin
+  if (StrScan('0123456789',Key) <> nil) or (Key = Char(VK_BACK)) then
+   else Key := #0;
+ end;
+end;
+
+procedure TCambioVToLiqui.SALEClick(Sender: TObject);
+begin
+close;
+end;
+
+procedure TCambioVToLiqui.INSERTARClick(Sender: TObject);
+var gf,a:integer;
+    Com1:TADOCommand;
+    Cnx2:TADOConnection;
+begin
+  gf:=messagedlg('Confirma Modificar el Vencimiento de esta Liquidacion seleccionada?',mtWarning,[mbok,mbCancel],0);
+  if gf = 1 then begin
+   try
+    Cnx2:=TADOConnection.Create(nil);
+    Cnx2.LoginPrompt:=false;
+    Cnx2.ConnectionString:=modulo2.ConectDbMuni;
+
+    Com1:=TADOCommand.Create(nil);
+    Com1.Connection:=Cnx2;
+
+    Com1.CommandText:='UPDATE [municipio].[dbo].[tasaanualLiquidacion] SET '
+    +'primerv = ' + chr(39) + trim(DateToStr(ld.Date)) + chr(39)
+    +',segundv = '  + chr(39) + trim(DateToStr(ld.Date)) + chr(39)
+    + ' WHERE (idregistro = ' + dato + ')';
+    Com1.Execute;
+
+    messagedlg('EXITO!! Liquidacion Modificada correctamente',mtconfirmation,[mbok],0);
+
+   except
+    EnviarLog(self.Caption,Com1.CommandText);
+    messagedlg('Error!! Esta liquidacion NO pudo ser Modificada.',mterror,[mbok],0);
+   end;
+   FreeAndNil(Com1);
+   Cnx2.Close;
+   FreeAndNil(Cnx2);
+  end;
+end;
+
+end.

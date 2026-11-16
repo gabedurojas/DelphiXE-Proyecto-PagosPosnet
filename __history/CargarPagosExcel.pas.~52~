@@ -1,0 +1,449 @@
+unit CargarPagosExcel;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.Mask,
+  Vcl.ComCtrls, JvgPage, Vcl.ImgList, JvComponentBase, JvEmbeddedForms, Data.DB,
+  Vcl.Grids, Vcl.DBGrids, JvExDBGrids, JvDBGrid,StrUtils,ADODB, JvExButtons,
+  JvBitBtn, Vcl.ExtCtrls, JvExMask, JvToolEdit, JvMaskEdit, JvCheckedMaskEdit,
+  JvDatePickerEdit, JvgExportComponents,ComObj,  FireDAC.Stan.Intf,
+  FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf,
+  FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys,
+  FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  FireDAC.VCLUI.Wait, Data.Bind.EngExt, Vcl.Bind.DBEngExt, Vcl.Bind.Grid,
+  System.Rtti, System.Bindings.Outputs, Vcl.Bind.Editors, Data.Bind.Components,
+  Data.Bind.Grid, Data.Bind.DBScope, FireDAC.Phys.ODBCBase, FireDAC.Phys.ODBC,
+  FireDAC.Comp.UI, FireDAC.Comp.DataSet, FireDAC.Comp.Client,Winapi.ShellAPI,
+  JvExExtCtrls, JvExtComponent, JvCaptionPanel, Vcl.Menus, frxClass;
+
+  type THackStringGrid = class(TStringGrid);
+type
+    TLosPagosExcel = class(TForm)
+    PC1: TJvgPageControl;
+    TabSheet1: TTabSheet;
+    GroupBox4: TGroupBox;
+    FormularioEmb: TJvEmbeddedFormLink;
+    ImageList1: TImageList;
+    DataSource1: TDataSource;
+    GroupBox3: TGroupBox;
+    sale: TBitBtn;
+    GroupBox1: TGroupBox;
+    INSERTAR: TBitBtn;
+    ok: TImage;
+    NO: TImage;
+    Label7: TLabel;
+    Grouporecibo: TGroupBox;
+    GroupBox2: TGroupBox;
+    FOLDER: TEdit;
+    btnImportar: TBitBtn;
+    FDConnection1: TFDConnection;
+    FDQuery1: TFDQuery;
+    FDGUIxWaitCursor1: TFDGUIxWaitCursor;
+    FDPhysODBCDriverLink1: TFDPhysODBCDriverLink;
+    BindSourceDB1: TBindSourceDB;
+    BindingsList1: TBindingsList;
+    Label1: TLabel;
+    OpenDialog1: TOpenDialog;
+    Edit1: TEdit;
+    Label2: TLabel;
+    Label3: TLabel;
+    Ld: TDateTimePicker;
+    PC2: TPageControl;
+    TabSheet2: TTabSheet;
+    TabSheet3: TTabSheet;
+    StringGrid1: TStringGrid;
+    DBGrid1: TDBGrid;
+    DataSource2: TDataSource;
+    PANEL11: TJvCaptionPanel;
+    GroupBox11: TGroupBox;
+    JvBitBtn2: TJvBitBtn;
+    Label4: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
+    Label8: TLabel;
+    PopupMenu1: TPopupMenu;
+    ImprimirDiferencias1: TMenuItem;
+    frxReport1: TfrxReport;
+    procedure FormCreate(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
+    procedure CargaCombos(nro:byte);
+    procedure Consultas(nro:byte);
+    procedure Limpiar(nro:byte);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure INSERTARClick(Sender: TObject);
+    procedure saleClick(Sender: TObject);
+    procedure JvDBGrid1CellClick(Column: TColumn);
+    procedure StringGrid1Click(Sender: TObject);
+    procedure btnImportarClick(Sender: TObject);
+    procedure LdKeyPress(Sender: TObject; var Key: Char);
+    procedure JvBitBtn2Click(Sender: TObject);
+
+  private
+   IdCombo:array of array of string;
+   gh,modif,det,elim:boolean;
+   FechaAct,elidasiento,txi,elidasientodet,feccierre,detasiento:string;
+   Com1,Com2,Com3:TADOCommand;
+   Cnx2:TADOConnection;
+   DataSet1,ASIENTOS,ASIENTOSDET,DataSet4,DataSetAlta,MAXIMOASIENTO,DataSet3:TADODataSet;
+   totd,toth:real;
+   g1,g2:Extended ;
+   totalRegistros:integer;
+    { Private declarations }
+  public
+   control:boolean;
+    { Public declarations }
+  end;
+
+var
+  LosPagosExcel: TLosPagosExcel;
+
+implementation
+
+{$R *.dfm}
+
+uses Unidad, modulo;
+
+procedure TLosPagosExcel.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+freeAndNil(ASIENTOS);
+//FREEANDNIL(ASIENTOSDET);
+FREEANDNIL(DataSet4);
+//FreeAndNil(DataSet3);
+end;
+
+procedure TLosPagosExcel.FormCreate(Sender: TObject);
+begin
+  gh:=false;
+  //FDQuery1.Active :=true;
+  ASIENTOS:=TADODataSet.Create(Self);
+  //ASIENTOSDET:=TADODataSet.Create(Self);
+  DataSet4:=TADODataSet.Create(Self);
+  //DataSet3:=TADODataSet.Create(nil);
+end;
+
+procedure TLosPagosExcel.StringGrid1Click(Sender: TObject);
+begin
+//if not ASIENTOSDET.IsEmpty then begin
+//  insertar.Enabled:=true;
+//  insertar.SetFocus;
+// end;
+end;
+
+procedure TLosPagosExcel.FormActivate(Sender: TObject);
+begin
+ if not (gh) then begin
+  PC1.ActivePage:=PC1.Pages[0];
+  PC2.ActivePage:=PC2.Pages[0];
+  ld.Date:= now;
+  control:=false;
+  {StringGrid1.Cells[0,0]:='idrecibo';              StringGrid1.Cells[1,0]:='IdLiquidacion';
+  StringGrid1.Cells[2,0]:='IdTasaAnual';           StringGrid1.Cells[3,0]:='fechaemision';
+  StringGrid1.Cells[4,0]:='IdCaja';                StringGrid1.Cells[5,0]:='IdCajero';
+  StringGrid1.Cells[6,0]:='importe';               StringGrid1.Cells[7,0]:='anio';
+  StringGrid1.Cells[8,0]:='puntov';   }
+  SetLength(IdCombo,1);
+  gh:=true;
+  feccierre:='';
+  FechaAct:=LeftStr(Fec_System(),10);
+  PC1.ActivePage:=PC1.Pages[0];
+   PC2.ActivePage:=PC2.Pages[0];
+  modif:=false;
+  det:=false;
+  elim:=false;
+  Consultas(0);
+  CargaCombos(1);
+  ok.Visible:=false;
+  NO.Visible:=false;
+  insertar.Enabled:=false;
+  label7.Caption:='...';
+  GroupBox2.Enabled :=false;
+  PANEL11.Visible :=true;
+ end;
+end;
+
+procedure TLosPagosExcel.JvBitBtn2Click(Sender: TObject);
+begin
+ PANEL11.Visible :=false;
+ GroupBox2.Enabled :=true;
+ ld.SetFocus;
+end;
+
+procedure TLosPagosExcel.JvDBGrid1CellClick(Column: TColumn);
+begin
+ if not ASIENTOSDET.IsEmpty then begin
+  insertar.Enabled:=true;
+  insertar.SetFocus;
+ end;
+end;
+
+procedure TLosPagosExcel.INSERTARClick(Sender: TObject);
+var gf,a,reg:integer;
+    txtw:string;
+var Cnx2:TADOConnection;
+begin
+  gf:=messagedlg('Confirma GUARDAR los datos del PosnetPagoRecibo?',mtWarning,[mbok,mbCancel],0);
+  if gf = 1 then begin
+   try
+    Cnx2:=TADOConnection.Create(nil);
+    Cnx2.LoginPrompt:=false;
+    Cnx2.ConnectionString:=modulo2.ConectDbMuni;
+    DataSet4:=TADODataSet.Create(nil);
+    DataSet4.Connection:=Cnx2;
+    Com1:=TADOCommand.Create(nil);
+    Com1.Connection:=Cnx2;
+
+    /// 1er paso eliminamos los datos de la tabla origen
+    Com1.CommandText:='truncate table [dbo].[MaratonPagos]';
+    Com1.Execute;
+
+    /// 2do paso insertamos los datos de la tabla origen
+    for gf:=1 to StringGrid1.RowCount-1 do begin
+     Com1.CommandText:='INSERT INTO [dbo].[MaratonPagos] ([nroorden],[rubro],[pv],[liquidacion]'
+     +',[importe],[pvrecibo],[recibo],[observ]) VALUES  (' +  chr(39) + trim(StringGrid1.Cells[0,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[1,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[2,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[3,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[4,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[5,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[6,gf]) + chr(39)
+     + ' , ' + chr(39) + trim(StringGrid1.Cells[7,gf]) + chr(39)
+     + ')';
+     Com1.Execute;
+    end;
+
+    DataSet4.CommandText:='SELECT count(*) as cantidad FROM [dbo].[MaratonPagos]';
+    DataSet4.Open;
+    if not DataSet4.isempty then begin
+     reg:=strtoint(trim(DataSet4.Fields[0].AsString));
+    end;
+    DataSet4.Close;
+    DataSet4.Connection:=nil;
+
+    if totalRegistros = reg  then begin
+      // ahora corremos el sp de insercion de los registros a RECIBOS
+      Com1.CommandText:='PRC_InsertaPagosExternosaRecibos_Insertar ' + chr(39) + trim(DateToStr(ld.Date)) + chr(39);
+      Com1.Execute;
+
+      ok.Visible:=true;
+      no.Visible:=false;
+      label7.Visible :=true;
+      label7.Caption:='Los Pagos fueron Guardados correctamente..';
+      Limpiar(1);
+      pc1.Pages[0].TabVisible:=true;
+      PC1.ActivePage:=PC1.Pages[0];
+      // consulto por las diferencias
+      Consultas(2);
+      PC2.ActivePage:=PC2.Pages[1];
+    end
+    else begin
+     //Consultas(2);
+     //PC2.ActivePage:=PC2.Pages[1];
+     ok.Visible:=false;
+     no.Visible:=true;
+     label7.Visible :=true;
+     label7.Caption:='ERROR NO se guardo el total de registros';
+    end;
+   except
+    EnviarLog(self.Caption,Com1.CommandText);
+    ok.Visible:=false;
+    no.Visible:=true;
+    label7.Caption:='ERROR al Guardar los Datos.. ';
+   end;
+   FreeAndNil(Com1);
+   Cnx2.Close;
+   FreeAndNil(Cnx2);
+  end;
+end;
+
+procedure TLosPagosExcel.btnImportarClick(Sender: TObject);
+var origen:string;
+    i,fila:integer;
+    RutaCarpeta,RutaArchivo: string;
+
+begin
+ origen:='C:\PagosExcel\Maraton2026final.xls';
+ RutaCarpeta := 'C:\PagosExcel';
+ RutaArchivo := trim(origen);
+ if DirectoryExists(RutaCarpeta) then   begin
+   if FileExists(RutaArchivo) then begin
+     if OpenDialog1.Execute then begin
+      // La propiedad FileName contiene la ruta completa del archivo seleccionado
+      //ShowMessage('El archivo seleccionado es: ' + OpenDialog1.FileName);
+      folder.text:=  OpenDialog1.FileName;
+      if trim(folder.Text) = trim(origen) then begin
+
+       FDConnection1.Connected := True;
+
+       FDQuery1.Connection := FDConnection1;
+       FDQuery1.SQL.Text := 'SELECT * FROM [Maraton2026$]';
+       FDQuery1.Open;
+
+       // 1. Configuramos las columnas basadas en los campos del Excel
+       StringGrid1.ColCount := FDQuery1.FieldCount;
+
+       // 2. Empezamos con 1 fila (la de la cabecera)
+       StringGrid1.RowCount := 1;
+
+       // 3. Cargamos las cabeceras
+       for i := 0 to FDQuery1.FieldCount - 1 do
+       StringGrid1.Cells[i, 0] := FDQuery1.Fields[i].FieldName;
+
+        // 4. Recorremos los registros aumentando el RowGrid dinámicamente
+       Fila := 1;
+       FDQuery1.First;
+       while not FDQuery1.Eof do begin
+        // Creamos una nueva fila en el StringGrid antes de rellenarla
+         StringGrid1.RowCount := Fila + 1;
+
+         for i := 0 to FDQuery1.FieldCount - 1 do
+          StringGrid1.Cells[i, Fila] := FDQuery1.Fields[i].AsString;
+
+         Inc(Fila);
+         FDQuery1.Next;
+       end;
+
+       FDQuery1.Close;
+
+       ok.Visible:=true;
+       no.Visible:=false;
+       totalRegistros := StringGrid1.RowCount - 1 ;//StringGrid1.FixedRows;
+       edit1.Text := inttostr(totalRegistros);
+       label7.Caption:='Archivo Cargado con Exito';
+       insertar.Visible :=true;
+       insertar.Enabled :=true;
+      end
+      else begin
+       ok.Visible:=false;
+       no.Visible:=true;
+       label7.Caption:='Error en Archivo de Origen.';
+       insertar.Visible :=false;
+       insertar.Enabled :=false;
+      end;
+     end;
+   end
+   else begin
+    ShowMessage('El archivo ''Maraton2026final.xls''  NO existe.');
+    ld.SetFocus ;
+   end;
+ end
+ else begin
+    ShowMessage('La carpeta ''C:\PagosExcel'' NO existe.');
+    ld.SetFocus ;
+ end;
+end;
+
+procedure TLosPagosExcel.CargaCombos(nro:byte);
+begin
+  //if nro=1 then Modulo2.CargaCombo(ASIENTOPERIODO,'SELECT IdTerminal FROM Posnet_Terminales WHERE (Deshabilitado = 0) order by 1 asc',Modulo2.ConectDbMuni);
+  //if nro=2 then Modulo2.CargaCombo(newperiodo,'SELECT TOP (12) Periodo FROM Periodos WHERE (Periodo >= 201701) AND (MaximoNroAsiento = 0) ORDER BY IdPeriodo',modulo2.Sistema.ConectContable,false);
+end;
+
+procedure TLosPagosExcel.Consultas(nro:byte);
+var t,y,gf,p,u:integer;
+begin
+ Cnx2:=TADOConnection.Create(nil);
+ Cnx2.LoginPrompt:=false;
+ Cnx2.ConnectionString:=modulo2.ConectDbMuni;
+ {if nro = 1 then begin
+  ASIENTOPERIODO.Clear;
+  DataSet1.Close;
+  DataSet1.Connection:=Cnx2;
+  DataSet1.CommandText:='SELECT idperiodo,cantidad,contados FROM [PeriodosAsientos] (1) order by 3,1 desc';
+  DataSet1.Open;
+  SetLength(IdCombo[0],DataSet1.RecordCount);
+  for t:=1 to DataSet1.RecordCount do begin
+   DataSet1.RecNo:=t;
+   ASIENTOPERIODO.Items.Insert(t-1,trim(DataSet1.Fields[0].AsString));
+   IdCombo[0,t-1]:=trim(DataSet1.Fields[0].AsString);
+  end;
+  DataSet1.Connection:=nil;
+  ASIENTOPERIODO.ItemIndex:=0;
+ end; }
+ if nro = 2 then begin
+  ASIENTOS.Close;
+  ASIENTOS.Connection:=Cnx2;
+  DataSource1.DataSet:=ASIENTOS;
+  ASIENTOS.CommandText:='SELECT a.[nroorden],a.[rubro],a.[pv],a.[liquidacion] '
+  +',a.[importe],a.[pvrecibo],a.[recibo] ,a.[observ] FROM  MaratonPagos a '
+  +' LEFT OUTER JOIN recibos ON a.recibo = recibos.nrorecibo '
+  +' AND a.importe = recibos.importe AND a.liquidacion = recibos.Liquidacion WHERE (recibos.idregtes IS NULL)';
+  ASIENTOS.Open;
+  if not ASIENTOS.IsEmpty  then begin
+   DBGrid1.Columns[0].Width := 100;
+   DBGrid1.Columns[1].Width := 100;
+   DBGrid1.Columns[2].Width := 100;
+   DBGrid1.Columns[3].Width := 100;
+   DBGrid1.Columns[4].Width := 100;
+   DBGrid1.Columns[5].Width := 100;
+   DBGrid1.Columns[6].Width := 100;
+   DBGrid1.Columns[7].Width := 100;
+  end;
+  ASIENTOS.Connection:=nil;
+  Cnx2.Close;
+ end;
+ {if nro = 3 then begin
+ ASIENTOSDET.Close;
+  ASIENTOSDET.Connection:=Cnx2;
+  DataSource2.DataSet:=ASIENTOSDET;
+  ASIENTOSDET.CommandText:='SELECT idrecibo,IdLiquidacion,IdTasaAnual,fechaemision,'
+  +' IdCaja,IdCajero,importe,anio,puntov FROM TasaAnualRecibos WHERE (IdTasaAnual =' + trim(edit1.text) + ')';
+  ASIENTOSDET.Open;
+  for t:=1 to ASIENTOSDET.RecordCount do begin
+   grillaidentidad.RowCount:=t+1;
+   ASIENTOSDET.RecNo:=t;
+   grillaidentidad.Cells[0,t]:=ASIENTOSDET.Fields[0].AsString;
+   grillaidentidad.Cells[1,t]:=ASIENTOSDET.Fields[1].AsString;
+   grillaidentidad.Cells[2,t]:=ASIENTOSDET.Fields[2].AsString;
+   grillaidentidad.Cells[3,t]:=ASIENTOSDET.Fields[3].AsString;
+   grillaidentidad.Cells[4,t]:=ASIENTOSDET.Fields[4].AsString;
+   grillaidentidad.Cells[5,t]:=ASIENTOSDET.Fields[5].AsString;
+   grillaidentidad.Cells[6,t]:=ASIENTOSDET.Fields[6].AsString;
+   grillaidentidad.Cells[7,t]:=ASIENTOSDET.Fields[7].AsString;
+   grillaidentidad.Cells[8,t]:=ASIENTOSDET.Fields[8].AsString;
+  end;
+  if not ASIENTOSDET.IsEmpty  then insertar.visible:=true
+    else  insertar.visible:=false;
+  //end;
+  ASIENTOSDET.Connection:=nil;
+  Cnx2.Close;
+ end;           }
+end;
+
+procedure TLosPagosExcel.LdKeyPress(Sender: TObject; var Key: Char);
+begin
+ if key = #13 then begin
+  Key := #0;
+  btnImportar.SetFocus;
+ end;
+end;
+
+procedure TLosPagosExcel.Limpiar(nro:byte);
+var t,y,gf,p,u:integer;
+    totd,toth:real;
+begin
+ if nro = 1 then begin
+  insertar.Enabled :=false;
+
+  for p:=0 to StringGrid1.ColCount-1 do
+    for u:=1 to StringGrid1.RowCount-1 do StringGrid1.Cells[p,u]:='';
+  StringGrid1.RowCount:=2;
+
+  edit1.Clear;
+  folder.Clear;
+
+  PC2.ActivePage:=PC2.Pages[0];
+  //ok.Visible:=false;
+  //no.Visible:=false;
+  //PC1.ActivePage:=PC1.Pages[0];
+  //label7.Caption:='...';
+ end;
+end;
+
+procedure TLosPagosExcel.saleClick(Sender: TObject);
+begin
+ close;
+end;
+
+end.

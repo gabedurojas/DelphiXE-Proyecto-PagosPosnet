@@ -1,0 +1,147 @@
+unit Principal;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ComCtrls, jpeg, ExtCtrls, Menus, Buttons, ImgList;
+                                                                                  
+type
+  TPrincipal_Menu = class(TForm)
+    MainMenu1: TMainMenu;
+    Asignaciones1: TMenuItem;
+    AsignacindeClave1: TMenuItem;
+    Image1: TImage;
+    Label1: TLabel;
+    SBarra1: TStatusBar;
+    BitBtn1: TBitBtn;
+    Label2: TLabel;
+    ImageList1: TImageList;
+    procedure FormActivate(Sender: TObject);
+    procedure AsignacindeClave1Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure BitBtn1Click(Sender: TObject);
+    procedure Image1Click(Sender: TObject);
+    function GetAppVersion: string;
+ //   procedure ImpresindeCertificados1Click(Sender: TObject);
+  private
+    qwe:boolean;
+    usuarea:string;{ Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Principal_Menu: TPrincipal_Menu;
+
+implementation
+
+uses Modulo, Asig_Clave, Acceso1,Unidad;
+
+{$R *.dfm}
+
+procedure TPrincipal_Menu.FormActivate(Sender: TObject);
+//var Acceso: TAcceso;
+begin
+ if FileExists(modulo2.path_todo + '\Imagenes\Fondo.jpg') then
+  Image1.Picture.LoadFromFile(modulo2.path_todo + '\Imagenes\Fondo.jpg');
+ if not(qwe) then begin
+  {Acceso:= TAcceso.create(self);
+   try begin
+    Acceso.ShowModal;
+    if Acceso.control = false then close
+    else begin
+     AuditAccesos('INGRESO COMTASA ','I','117');
+     SBarra1.Panels[0].Text:='Nº de Usuario:  ' + modulo2.usu_nro;
+     SBarra1.Panels[1].Text:='Usuario Activo:  ' + modulo2.usuario;
+     SBarra1.Panels[2].Text:='Punto Venta:  ' + modulo2.PuntoV;
+     SBarra1.Panels[3].Text:='Servidor: ' + modulo2.Server + '/Multiples DB';
+     label2.Caption:='Version - ' + GetAppVersion;
+    end;
+   end;
+   finally
+    qwe:=true;
+    Acceso.Free;
+   end; }
+ end;
+end;
+
+function TPrincipal_Menu.GetAppVersion: string;
+var
+    Size, Size2: DWord;
+    Pt, Pt2: Pointer;
+begin
+  Size := GetFileVersionInfoSize(PChar(ParamStr(0)), Size2);
+  if Size > 0 then
+  begin
+   GetMem(Pt, Size);
+   try
+    GetFileVersionInfo(PChar(ParamStr(0)), 0, Size, Pt);
+    VerQueryValue(Pt, '\', Pt2, Size2);
+    with TVSFixedFileInfo(Pt2^) do
+    begin
+      Result := '' +
+      IntToStr(HiWord(dwFileVersionMS)) + IntToStr(LoWord(dwFileVersionMS))
+      + IntToStr(HiWord(dwFileVersionLS)) + IntToStr(LoWord(dwFileVersionLS));
+      //IntToStr(HiWord(dwFileVersionMS)) + '.' +
+      //IntToStr(LoWord(dwFileVersionMS)) + '.' +
+      //IntToStr(HiWord(dwFileVersionLS));
+      //+ ' Build ' + IntToStr(LoWord(dwFileVersionLS));
+    end;
+   finally
+    FreeMem(Pt);
+   end;
+  end;
+end;
+
+procedure TPrincipal_Menu.AsignacindeClave1Click(Sender: TObject);
+var Asignacion_Clave:TAsignacion_Clave;
+begin
+ //if Modulo2.UsuNvl = '' then usu_level(strtoint(modulo2.UsuNro),117);
+  //if StrToInt(Modulo2.UsuNvl) <= 3 then begin
+   Asignacion_Clave:= TAsignacion_Clave.create(self);
+   try
+    Asignacion_Clave.ShowModal;
+    //AuditAccesos('EC COMERCIO','I','117');
+   finally
+    Asignacion_Clave.Free;
+   end;
+  //end
+  //else begin
+  //  messagedlgpos('Permisos Insuficiente para el Usuario ' + modulo2.usuario
+  //  + chr(13) + ' para el Ingreso a este Módulo Nº: ''117'' del Programa.',mterror,[mbok],0,screen.Width div 3,screen.Height div 3)
+  //end;
+end;
+
+procedure TPrincipal_Menu.FormCreate(Sender: TObject);
+begin
+qwe:=false;
+end;
+
+procedure TPrincipal_Menu.BitBtn1Click(Sender: TObject);
+begin
+//AuditAccesos('SALE COMERCIO','S','117');
+close;
+end;
+
+procedure TPrincipal_Menu.Image1Click(Sender: TObject);
+var Acceso: TAcceso;
+begin
+  Acceso:= TAcceso.create(self);
+   try begin
+     Acceso.ShowModal;
+     if Acceso.control = false then close
+     else begin
+       SBarra1.Panels[0].Text:='Nº de Usuario:  ' + modulo2.UsuNro;
+       SBarra1.Panels[1].Text:='Usuario Activo:  ' + modulo2.usuario;
+       SBarra1.Panels[2].Text:='Punto Venta:  ' + modulo2.PuntoV;
+       SBarra1.Panels[3].Text:='Servidor: ' + modulo2.Server + '/Multiples DB';
+    end;
+   end;
+   finally
+    Acceso.Free;
+   end;
+end;
+
+end.
+

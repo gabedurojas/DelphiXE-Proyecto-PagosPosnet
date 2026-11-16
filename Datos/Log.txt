@@ -1,0 +1,4 @@
+ChangeFechaTH - 18/03/2013 10:44:09 a.m. - COMMIT TRANSACTION
+Asignacion_Clave - 01/06/2015 10:14:24 - UPDATE Contribuyente SET CUIT=30663181838 WHERE (CUIM='42-00000177-1')
+Asignacion_Clave - 01/06/2015 10:24:42 - UPDATE ComerciosContribuyentes SET DigitoVerif=8 WHERE (CUIM='42-00000177-1')
+Asignacion_Clave - 01/06/2015 10:29:23 - UPDATE ComerciosContribuyentes SET DigitoVerif=6 WHERE (CUIM='27-16552089-6')

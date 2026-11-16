@@ -1,0 +1,12 @@
+object Modulo2: TModulo2
+  OldCreateOrder = False
+  OnCreate = DataModuleCreate
+  Left = 673
+  Top = 454
+  Height = 222
+  Width = 275
+  object XPManifest1: TXPManifest
+    Left = 22
+    Top = 14
+  end
+end

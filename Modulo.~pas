@@ -1,0 +1,605 @@
+unit Modulo;
+
+interface
+
+uses
+  SysUtils, Classes, Messages, Windows, Dialogs, StdCtrls, ComCtrls, Forms,
+  XPMan, ADODB, Winsock, DB;
+
+type TDLLConectionString = Function(Const NombreArchIni,NombreAplicacion:PAnsiChar;
+                            Const NroConexion,Parte:UCHAR; Const BorrarArchivo,ActivaLog:BOOL):PAnsiChar; StdCall;
+type TDLLReadIni = Function(const ArchivoIni,Etiqueta,Variable,ValoXDefecto:PAnsiChar):PAnsiChar; stdcall;
+type TDLLWriteIni = Function(const ArchivoIni,Etiqueta,Variable,ValorAsignado:PAnsiChar):PBOOL; stdcall;
+type TDLLDeleteSectionIni = Function(const ArchivoIni,Etiqueta:PAnsiChar):PBOOL; stdcall;
+type TDLLEncriptarStr = Function(const Texto,Key,TipoCifrador:PAnsiChar):PAnsiChar; stdcall;
+type TDLLDencryptStr = Function(const Texto,Key,TipoCifrador:PAnsiChar):PAnsiChar; stdcall;
+type TDLLCrearHashArchivo = Function(const ArchivoOrigen:PAnsiChar):PAnsiChar; stdcall;
+type TDLLPingHost = Function(const Host:PAnsiChar):PBOOL; StdCall;
+type TDLLFTPSendFile = Function(const Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:PAnsiChar; Const BorrarAlCopiar:BOOL):PAnsiChar; StdCall;
+type TDLLFTPGetFile = Function(const Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:PAnsiChar):PAnsiChar; StdCall;
+type TDLLVersionDLL = Function:PAnsiChar; stdcall;
+
+type
+  TModulo2 = class(TDataModule)
+    XPManifest1: TXPManifest;
+    function obtenerNombrePC():string;
+    function obtenerUsuarioRed : Ansistring;
+    function GetLoginName: string;
+    function GetIPAddressAsString: String;
+    function getIPs: Tstrings;
+    procedure DataModuleCreate(Sender: TObject);
+    Function ReadIni(ArchivoIni,Etiqueta,Variable,ValoXDefecto:string):string;
+    Function WriteIni(ArchivoIni,Etiqueta,Variable,ValorAsignado:string):boolean;
+    Function DeleteSectionIni(ArchivoIni,Etiqueta:string):boolean;
+    Function EncriptarStr(Texto,Key,TipoCifrador:string):string;
+    Function DencryptStr(Texto,Key,TipoCifrador:string):string;
+    Function CrearHashArchivo(ArchivoOrigen:string):string;
+    Function PingHost(Host:string):boolean;
+    Function FTPSendFile(Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:string;BorrarAlCopiar:boolean):string;
+    Function FTPGetFile(Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:string):string;
+    Function ConectionString(NombreArchIni,NombreAplicacion:string;NroConexion,Parte:byte;
+                            BorrarArchivo,ActivaLog:boolean):string;
+    Function VersionDll():string;
+   private
+    LstArchivos:TStringList;
+    DataSetGral:TADODataSet;{ Private declarations }
+  public
+    DirLocal,PathIni,MyHost,MyIP,usuario,path_todo,Server,DbfPrinc,PuntoV:string;
+    usu_nro,UsuNro,UsuNroArea,UsuAreaDet,UsuNvl,UsuSucu,NroAplicacion,LogComentario,num_modulo,nvl_usu:string;
+    nro_usu,nvl_usum,num_opcion,num_level,PositionFTP,usu_level:integer;
+    ConecSql,ConecMuni,ConecSegWeb:widestring;
+    ConAcceso,Administrador,CerrarApl:boolean;
+    RFtpDatos,WFtpDatos:array of string;
+    ObjConexionMuni:TADOConnection;
+    ObjConexionComercio:TADOConnection;
+    { Public declarations }
+  end;
+
+const
+   DLLReadIni: TDLLReadIni = nil;
+   DLLWriteIni: TDLLWriteIni = nil;
+   DLLDeleteSectionIni: TDLLDeleteSectionIni = nil;
+   DLLEncriptarStr: TDLLEncriptarStr = nil;
+   DLLDencryptStr: TDLLDencryptStr = nil;
+   DLLCrearHashArchivo: TDLLCrearHashArchivo = nil;
+   DLLVersionDLL : TDLLVersionDLL  = nil;
+   DLLPingHost: TDLLPingHost = nil;
+   DLLFTPSendFile: TDLLFTPSendFile = nil;
+   DLLFTPGetFile: TDLLFTPGetFile = nil;
+   DLLConectionString: TDLLConectionString = nil;
+   NombreDll = 'Resource02.dll';
+
+   VersionSoft: string = '201211030910';
+
+var
+  Modulo2: TModulo2;
+  DLLHandle: THandle;
+
+implementation
+
+uses Unidad;
+
+
+{$R *.dfm}
+function TModulo2.getIPs: Tstrings;
+type
+  TaPInAddr = array[0..10] of PInAddr;
+  PaPInAddr = ^TaPInAddr; 
+var 
+  phe: PHostEnt; 
+  pptr: PaPInAddr; 
+  Buffer: array[0..63] of Char; 
+  I: Integer; 
+  GInitData: TWSAData; 
+begin
+  WSAStartup($101, GInitData);
+  Result := TstringList.Create; 
+  Result.Clear; 
+  GetHostName(Buffer, SizeOf(Buffer)); 
+  phe := GetHostByName(buffer);
+  if phe = nil then Exit; 
+  pPtr := PaPInAddr(phe^.h_addr_list); 
+  I    := 0; 
+  while pPtr^[I] <> nil do 
+  begin 
+    Result.Add(inet_ntoa(pptr^[I]^)); 
+    Inc(I); 
+  end; 
+  WSACleanup; 
+end;
+
+function TModulo2.GetIPAddressAsString: String;
+  function GetIPAddress: Integer;
+  var
+    Buffer: array[0..255] of Char;
+    RemoteHost: PHostEnt;
+  begin
+    Winsock.GetHostName(@Buffer, 255);
+    RemoteHost := Winsock.GetHostByName(Buffer);
+    if RemoteHost = nil then
+      Result := winsock.htonl($07000001) { 127.0.0.1 }
+    else
+      Result := longint(pointer(RemoteHost^.h_addr_list^)^);
+      Result := Winsock.ntohl(Result);
+  end;
+var
+  tempAddress: Integer;
+  Buffer: array[0..3] of Byte absolute tempAddress;
+begin
+  tempAddress := GetIPAddress;
+  Result := Format('%d.%d.%d.%d', [Buffer[3], Buffer[2], Buffer[1], Buffer[0]]);
+end;
+
+function TModulo2.obtenerNombrePC():string;
+var
+  nombre: String;
+  DatosSocket: WSAData;
+begin
+  WSAStartup($0101, DatosSocket);
+  SetLength(nombre, MAX_PATH);
+  gethostname(PChar(Nombre), MAX_PATH);
+  SetLength(nombre, StrLen(PChar(nombre)));
+  result := nombre;
+end;
+
+function TModulo2.obtenerUsuarioRed : Ansistring;
+var
+  dwI : DWord;
+begin
+  dwI := MAX_PATH;
+  SetLength (Result, dwI + 1);
+  if WNetGetUser (Nil, PChar (Result), dwI) = NO_ERROR then
+    SetLength (Result, StrLen (PChar (Result)))
+  else
+    SetLength (Result, 0)
+end;
+
+
+function TModulo2.GetLoginName: string;
+var 
+buffer: array[0..255] of char; 
+size: dword; 
+begin 
+size := 256;
+if GetUserName(buffer, size) then
+Result := buffer 
+else
+Result := '' 
+end;
+
+
+Function TModulo2.ReadIni(ArchivoIni,Etiqueta,Variable,ValoXDefecto:string):string;
+var Arch,Etiq,Vari,Valor,Res:PAnsiChar;
+    rt:string;
+begin
+Arch:=PAnsiChar(AnsiString(ArchivoIni));
+Etiq:=PAnsiChar(AnsiString(Etiqueta));
+Vari:=PAnsiChar(AnsiString(Variable));
+Valor:=PAnsiChar(AnsiString(ValoXDefecto));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLReadIni := GetProcAddress(DLLHandle, 'ReadIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLReadIni) then begin
+       Res:=DLLReadIni(Arch,Etiq,Vari,Valor);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: ReadIni');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.WriteIni(ArchivoIni,Etiqueta,Variable,ValorAsignado:string):boolean;
+var Arch,Etiq,Vari,Valor:PAnsiChar;
+    Res:PBool;
+    rt:boolean;
+begin
+Arch:=PAnsiChar(AnsiString(ArchivoIni));
+Etiq:=PAnsiChar(AnsiString(Etiqueta));
+Vari:=PAnsiChar(AnsiString(Variable));
+Valor:=PAnsiChar(AnsiString(ValorAsignado));
+Res:=PBool(false);
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLWriteIni := GetProcAddress(DLLHandle, 'WriteIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLWriteIni) then begin
+       Res:=DLLWriteIni(Arch,Etiq,Vari,Valor);
+       rt:=boolean(Res);
+    end
+    else
+       ShowMessage('No se existe Función: WriteIni');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.DeleteSectionIni(ArchivoIni,Etiqueta:string):boolean;
+var Arch,Etiq:PAnsiChar;
+    Res:PBool;
+    rt:boolean;
+begin
+Arch:=PAnsiChar(AnsiString(ArchivoIni));
+Etiq:=PAnsiChar(AnsiString(Etiqueta));
+Res:=PBool(false);
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLDeleteSectionIni := GetProcAddress(DLLHandle, 'DeleteSectionIni');
+     {if procedure is found in the dll}
+    if Assigned(DLLDeleteSectionIni) then begin
+       Res:=DLLDeleteSectionIni(Arch,Etiq);
+       rt:=boolean(Res);
+    end
+    else
+       ShowMessage('No se existe Función: DeleteSectionIni');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.EncriptarStr(Texto,Key,TipoCifrador:string):string;
+var Txt,Ky,Tpo,Res:PAnsiChar;
+    rt:string;
+begin
+Txt:=PAnsiChar(AnsiString(Texto));
+Ky:=PAnsiChar(AnsiString(Key));
+Tpo:=PAnsiChar(AnsiString(TipoCifrador));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLEncriptarStr := GetProcAddress(DLLHandle, 'EncriptarStr');
+     {if procedure is found in the dll}
+    if Assigned(DLLEncriptarStr) then begin
+       Res:=DLLEncriptarStr(Txt,Ky,Tpo);
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: EncriptarStr');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.DencryptStr(Texto,Key,TipoCifrador:string):string;
+var Txt,Ky,Tpo,Res:PAnsiChar;
+    rt:string;
+begin
+Txt:=PAnsiChar(AnsiString(Texto));
+Ky:=PAnsiChar(AnsiString(Key));
+Tpo:=PAnsiChar(AnsiString(TipoCifrador));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLDencryptStr := GetProcAddress(DLLHandle, 'DencryptStr');
+     {if procedure is found in the dll}
+    if Assigned(DLLDencryptStr) then begin
+       Res:=DLLDencryptStr(Txt,Ky,Tpo);
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: DencryptStr');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.CrearHashArchivo(ArchivoOrigen:string):string;
+var Txt,Res:PAnsiChar;
+    rt:string;
+begin
+Txt:=PAnsiChar(AnsiString(ArchivoOrigen));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLCrearHashArchivo := GetProcAddress(DLLHandle, 'CrearHashArchivo');
+     {if procedure is found in the dll}
+    if Assigned(DLLCrearHashArchivo) then begin
+       Res:=DLLCrearHashArchivo(Txt);
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: CrearHashArchivo');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+
+function TModulo2.PingHost(Host:string):boolean;
+var Hs:PAnsiChar;
+    Res:PBool;
+    Rt:boolean;
+begin
+Hs:=PAnsiChar(AnsiString(Host));
+DLLHandle := LoadLibrary(NombreDll);
+Res:=PBool(false);
+if (DLLHandle > 0) then begin
+  try
+    @DLLPingHost := GetProcAddress(DLLHandle, 'PingHost');
+     {if procedure is found in the dll}
+    if Assigned(DLLPingHost) then begin
+       Res:=DLLPingHost(hs);
+       rt:=boolean(Res);
+    end
+    else begin
+       rt:=boolean(Res);
+       ShowMessage('No se existe Función: PingHost');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.FTPSendFile(Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:string;
+BorrarAlCopiar:boolean):string;
+var Hs,Us,Ps,ArO,ArF,Dir,Res:PAnsiChar;
+    Borr:PBool;
+    Rt:string;
+begin
+Hs:=PAnsiChar(AnsiString(Host));
+Us:=PAnsiChar(AnsiString(User));
+Ps:=PAnsiChar(AnsiString(Pwd));
+ArO:=PAnsiChar(AnsiString(ArchivoOrigen));
+ArF:=PAnsiChar(AnsiString(ArchivoFin));
+Dir:=PAnsiChar(AnsiString(Directorios));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLFTPSendFile:= GetProcAddress(DLLHandle, 'FTPSendFile');
+     {if procedure is found in the dll}
+    if Assigned(DLLFTPSendFile) then begin
+       Res:=DLLFTPSendFile(Hs,Us,Ps,ArO,ArF,Dir,BorrarAlCopiar);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: FTPSendFile');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+Function TModulo2.FTPGetFile(Host,User,Pwd,ArchivoOrigen,ArchivoFin,Directorios:string):string;
+var Hs,Us,Ps,ArO,ArF,Dir,Res:PAnsiChar;
+    Rt:string;
+begin
+Hs:=PAnsiChar(AnsiString(Host));
+Us:=PAnsiChar(AnsiString(User));
+Ps:=PAnsiChar(AnsiString(Pwd));
+ArO:=PAnsiChar(AnsiString(ArchivoOrigen));
+ArF:=PAnsiChar(AnsiString(ArchivoFin));
+Dir:=PAnsiChar(AnsiString(Directorios));
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLFTPGetFile := GetProcAddress(DLLHandle, 'FTPGetFile');
+     {if procedure is found in the dll}
+    if Assigned(DLLFTPGetFile) then begin
+       Res:=DLLFTPGetFile(Hs,Us,Ps,ArO,ArF,Dir);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: FTPGetFile');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+function Tmodulo2.ConectionString(NombreArchIni,NombreAplicacion:string;NroConexion,Parte:byte;
+                            BorrarArchivo,ActivaLog:boolean):string;
+var Arch,NomApl,Res:PAnsiChar;
+    //NrCx,Prt:UCHAR;
+    rt:string;
+begin
+Arch:=PAnsiChar(NombreArchIni);
+NomApl:=PAnsiChar(NombreAplicacion);
+DLLHandle := LoadLibrary(NombreDll);
+Res:=PAnsiChar('');
+if (DLLHandle > 0) then begin
+  try
+    @DLLConectionString := GetProcAddress(DLLHandle, 'ConectionString');
+     {if procedure is found in the dll}
+    if Assigned(DLLConectionString) then begin
+       Res:=DLLConectionString(Arch,NomApl,NroConexion,Parte,BorrarArchivo,ActivaLog);
+       rt:=string(Res);
+    end
+    else begin
+       rt:=string(Res);
+       ShowMessage('No se existe Función: ConectionString');
+    end;
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+
+Function TModulo2.VersionDll():string;
+var Res:PAnsiChar;
+    rt:string;
+begin
+Res:=PAnsiChar(AnsiString(''));
+DLLHandle := LoadLibrary(NombreDll);
+if (DLLHandle > 0) then begin
+  try
+    @DLLVersionDLL := GetProcAddress(DLLHandle, 'VersionDll');
+     {if procedure is found in the dll}
+    if Assigned(DLLVersionDLL) then begin
+       Res:=DLLVersionDLL();
+       rt:=string(Res);
+    end
+    else
+       ShowMessage('No se existe Función: VersionDll');
+   finally
+     {unload a library}
+     FreeLibrary(DLLHandle);
+   end;
+end
+else ShowMessage('No se encuentra Libreria ' + NombreDll);
+Result:=rt;
+end;
+
+
+procedure TModulo2.DataModuleCreate(Sender: TObject);
+var BaseDatos,Server,Psw,Usr,Tmp,conec2,conec3:string;
+//VAR conec2,conec3:WIDESTRING;
+begin
+path_todo:=GetCurrentDir();
+PathIni:=path_todo + '\sistemas.ini';
+NroAplicacion:='1';
+PuntoV:='20';
+UsuNvl:='';
+if FileExists(PathIni) then begin
+  MyIP:=getIPs.Strings[0];
+  usuario:=obtenerUsuarioRed;
+  MyHost:=obtenerNombrePC;
+
+  SetLength(RFtpDatos,3);
+  SetLength(WFtpDatos,3);
+  try
+    RFtpDatos[0]:=ReadIni(PathIni,'FTP','FTPHost','127.0.0.1');
+    Psw:=ReadIni(PathIni,'FTP','FTPK1','');
+    Usr:=ReadIni(PathIni,'FTP','FTPUsuario1','');
+    RFtpDatos[1]:=DencryptStr(Usr,Psw,'T');
+    Usr:=ReadIni(PathIni,'FTP','FTPP1','');
+    RFtpDatos[2]:=DencryptStr(Usr,Psw,'T');
+
+    WFtpDatos[0]:=ReadIni(PathIni,'FTP','FTPHost','127.0.0.1');
+    Psw:=ReadIni(PathIni,'FTP','FTPK2','');
+    Usr:=ReadIni(PathIni,'FTP','FTPUsuario2','');
+    WFtpDatos[1]:=DencryptStr(Usr,Psw,'T');
+    Usr:=ReadIni(PathIni,'FTP','FTPP2','');
+    WFtpDatos[2]:=DencryptStr(Usr,Psw,'T');
+
+    Server:=ReadIni(PathIni,'BaseDeDatos','NombreServer','');
+    BaseDatos:='ComercioTasa';
+
+    if Server = '192.168.0.105' then begin
+//      Usr:=ConectionString('Resource','TasaComercio',1,3,false,false);
+//      Psw:=ConectionString('Resource','TasaComercio',1,4,true,false);
+//      Conec2:=ConectionString('Resource','ConInmo',1,3,false,false);
+//      Conec3:=ConectionString('Resource','ConInmo',1,4,true,false);
+      Usr:=ReadIni(PathIni,'SQL','Ini8','');
+      Tmp:=ReadIni(PathIni,'SQL','Default8','');
+      Usr:=DencryptStr(Usr,Tmp,'T');
+      Psw:=ReadIni(PathIni,'SQL','Cl8','');
+      Tmp:=ReadIni(PathIni,'SQL','Default8','');
+      Psw:=DencryptStr(Psw,Tmp,'T');
+      Conec2:=ConectionString('Resource','ConInmo',1,3,false,false);
+      Conec3:=ConectionString('Resource','ConInmo',1,4,true,false);
+    end
+    else begin
+      Usr:=ConectionString('Resource','TasaComercio',1,3,false,false);
+      Psw:=ConectionString('Resource','TasaComercio',1,4,true,false);
+      Conec2:=ConectionString('Resource','ConInmo',1,3,false,false);
+      Conec3:=ConectionString('Resource','ConInmo',1,4,true,false);
+    end;
+   
+    ConecSql:='Provider=SQLOLEDB.1;Password=' + chr(39) + Psw + chr(39)
+           + ';Persist Security Info=True;User ID=' + Usr
+           + ';Initial Catalog=' + BaseDatos + ';Data Source=' + server
+           + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096;'
+           + 'Use Encryption for Data=False;Tag with column collation when possible=False;';
+    ConecMuni:='Provider=SQLOLEDB.1;Password=' + chr(39) + Conec3 + chr(39)
+           + ';Persist Security Info=True;User ID=' + Conec2
+           + ';Initial Catalog=municipio;Data Source=' + server
+           + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096;'
+           + 'Use Encryption for Data=False;Tag with column collation when possible=False;';
+    ConecSegWeb:='Provider=SQLOLEDB.1;Password=' + chr(39) + Conec3 + chr(39)
+           + ';Persist Security Info=True;User ID=' + Conec2
+           + ';Initial Catalog=SeguridadWeb;Data Source=' + server
+           + ';Use Procedure for Prepare=1;Auto Translate=True;Packet Size=4096;'
+           + 'Use Encryption for Data=False;Tag with column collation when ' +
+           'possible=False;';
+
+  CerrarApl:=false;
+  DataSetGral:=TADODataSet.Create(nil);
+  DataSetGral.ConnectionString:=ConecSql;
+  DataSetGral.CommandText:='SELECT Version,EsCritica FROM VersionSoft WHERE (Activo=1)';
+  DataSetGral.Open;
+  if not DataSetGral.IsEmpty then begin
+   if trim(DataSetGral.Fields[0].AsString) = VersionSoft then CerrarApl:=false
+   else begin
+    if DataSetGral.Fields[1].AsBoolean then begin
+      messagedlg('ATENCION!! Existe una versión NUEVA y deba actualizarla...' + chr(13)
+      + 'La actualización se considera CRITICA; por lo tanto se cerrará el SISTEMA',mterror,[mbok],0);
+      CerrarApl:=true;
+    end
+    else begin
+      messagedlg('ATENCION!! Existe una versión NUEVA se recomienda actualizarla...',mtWarning,[mbok],0);
+      CerrarApl:=false;
+    end;
+   end;
+  end
+  else begin
+    messagedlg('ERROR!! No es posible determinar la versión vigente, por lo tanto se cerrará el SISTEMA',mterror,[mbok],0);
+    CerrarApl:=true;
+  end;
+  DataSetGral.Close;
+  DataSetGral.Free;
+  DataSetGral:=nil;
+
+  except
+    messagedlg('Error al Intento de Conección a la Base de Datos de SQL Server',mterror,[mbok],0);
+    CerrarApl:=true;
+  end;
+end
+else messagedlg('No exite la Conección a Base de Datos de SQL Server',mterror,[mbok],0);
+end;
+
+end.
